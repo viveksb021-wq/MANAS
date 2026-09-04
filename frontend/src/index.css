@@ -1,0 +1,128 @@
+:root {
+  /* Brand Palette: Warm, Trustworthy Teal & Indigo */
+  --primary-50: #f0fdfa;
+  --primary-100: #ccfbf1;
+  --primary-500: #14b8a6;
+  --primary-600: #0d9488;
+  --primary-700: #0f766e;
+  
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --accent-emerald: #10b981;
+  
+  /* Neutral Palette */
+  --bg-patient: #f8fafc;
+  --card-patient: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-light: #e2e8f0;
+
+  /* Fonts */
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  
+  /* Touch target standard for Elderly UI */
+  --patient-btn-min-height: 72px;
+  --patient-font-scale: 1.15;
+}
+
+/* High Contrast Accessibility Mode */
+.high-contrast {
+  --bg-patient: #000000;
+  --card-patient: #111111;
+  --text-main: #ffff00; /* High Contrast Yellow on Dark */
+  --text-muted: #ffffff;
+  --border-light: #ffff00;
+  --primary-600: #ffff00;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #f1f5f9;
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Touch Friendly Buttons */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Elderly Patient Large Buttons */
+.patient-card-btn {
+  min-height: var(--patient-btn-min-height);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  background: #ffffff;
+  border: 3px solid #cbd5e1;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: left;
+  width: 100%;
+}
+
+.patient-card-btn:hover {
+  border-color: var(--primary-600);
+  background: var(--primary-50);
+  box-shadow: 0 20px 30px -10px rgba(13, 148, 136, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Utility Animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+.animate-pulse-mic {
+  animation: pulse-subtle 1.8s infinite ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
