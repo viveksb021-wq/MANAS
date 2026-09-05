@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Brain, Heart, MapPin, Sparkles } from 'lucide-react';
+import { Brain, Heart, MapPin, Sparkles, Play } from 'lucide-react';
 
-export type LoaderType = 'sunrise' | 'ai' | 'map' | 'rhino';
+export type LoaderType = 'video' | 'sunrise' | 'ai' | 'map' | 'rhino';
 
 interface ManasLoaderProps {
   type?: LoaderType;
@@ -12,7 +12,7 @@ interface ManasLoaderProps {
 }
 
 export const ManasLoader: React.FC<ManasLoaderProps> = ({
-  type = 'sunrise',
+  type = 'video',
   message,
   submessage,
   fullScreen = true,
@@ -27,6 +27,46 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
+
+  // Render Opening Video Animation Screen
+  const renderVideoLoader = () => (
+    <div style={{ textAlign: 'center', position: 'relative', width: '100%', maxWidth: '560px', padding: '1rem' }}>
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        background: '#0f172a',
+        borderRadius: '28px',
+        padding: '0.75rem',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+        border: '3px solid #1e293b',
+        overflow: 'hidden'
+      }}>
+        <video
+          src="/opening_animation.mp4"
+          autoPlay
+          muted
+          playsInline
+          onEnded={onComplete}
+          style={{
+            width: '100%',
+            maxHeight: '320px',
+            objectFit: 'contain',
+            borderRadius: '20px',
+            display: 'block'
+          }}
+        />
+      </div>
+
+      <div style={{ marginTop: '1.25rem' }}>
+        <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+          {message || 'MANAS'}
+        </h3>
+        <p style={{ fontSize: '1.05rem', color: '#0f766e', fontWeight: 600, marginTop: '0.2rem' }}>
+          {submessage || 'Neural Memory Companion • Helping memories stay connected'}
+        </p>
+      </div>
+    </div>
+  );
 
   // Render Sun Rising Animation using Reference Artwork
   const renderSunRisingLoader = () => (
@@ -55,7 +95,7 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
             }}
           />
 
-          {/* Animated Rising Sun Overlay - Sun rises from behind mountain ridge into sky */}
+          {/* Animated Rising Sun Overlay */}
           {!reducedMotion && (
             <div style={{
               position: 'absolute',
@@ -71,7 +111,7 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
             }} />
           )}
 
-          {/* Animated SVG Flying Birds Overlay matching diagonal path to red sun */}
+          {/* Animated SVG Flying Birds Overlay */}
           {!reducedMotion && (
             <svg
               viewBox="0 0 400 200"
@@ -94,31 +134,9 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
         </div>
       </div>
 
-      {/* MANAS Neural Emblem & Text */}
-      <div style={{
-        marginTop: '1.25rem',
-        position: 'relative',
-        zIndex: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center'
-      }}>
-        <div style={{
-          width: '60px',
-          height: '60px',
-          borderRadius: '18px',
-          background: 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 10px 25px rgba(15, 118, 110, 0.35)',
-          position: 'relative'
-        }}>
-          <Brain size={34} />
-          <Heart size={15} fill="#f43f5e" color="#f43f5e" style={{ position: 'absolute', bottom: '6px', right: '6px' }} />
-        </div>
-        <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', marginTop: '0.75rem', letterSpacing: '-0.02em' }}>
+      {/* MANAS Text */}
+      <div style={{ marginTop: '1.25rem' }}>
+        <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
           {message || 'MANAS'}
         </h3>
         <p style={{ fontSize: '1.05rem', color: '#0f766e', fontWeight: 600, marginTop: '0.2rem' }}>
@@ -128,7 +146,7 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
     </div>
   );
 
-  // Render Map Loader (Places I Know & Route Guidance)
+  // Render Map Loader
   const renderMapLoader = () => (
     <div style={{ textAlign: 'center', maxWidth: '380px', width: '100%', padding: '1.5rem' }}>
       <div style={{
@@ -155,7 +173,7 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
     </div>
   );
 
-  // Render AI Loader (Ask MANAS Voice Assistant thinking)
+  // Render AI Loader
   const renderAiLoader = () => (
     <div style={{ textAlign: 'center', maxWidth: '380px', width: '100%', padding: '1.5rem' }}>
       <div style={{
@@ -216,7 +234,7 @@ export const ManasLoader: React.FC<ManasLoaderProps> = ({
         }
       `}</style>
 
-      {type === 'map' ? renderMapLoader() : (type === 'ai' ? renderAiLoader() : renderSunRisingLoader())}
+      {type === 'video' ? renderVideoLoader() : (type === 'map' ? renderMapLoader() : (type === 'ai' ? renderAiLoader() : renderSunRisingLoader()))}
     </div>
   );
 };
