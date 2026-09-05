@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UserCheck, ShieldCheck, Heart, Brain, Sparkles } from 'lucide-react';
+import { UserCheck, ShieldCheck, Heart, Sparkles } from 'lucide-react';
 
 interface LoginRoleSelectionProps {
   onSelectRole: (role: 'patient' | 'guardian') => void;
@@ -35,28 +35,14 @@ export const LoginRoleSelection: React.FC<LoginRoleSelectionProps> = ({ onSelect
         textAlign: 'center',
         animation: 'fadeIn 0.4s ease-out'
       }}>
-        {/* App Logo & Title */}
-        <div style={{
-          width: '100px',
-          height: '100px',
-          borderRadius: '30px',
-          background: 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)',
-          color: '#ffffff',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 15px 30px rgba(13, 148, 136, 0.3)',
-          marginBottom: '1.5rem'
-        }}>
-          <Brain size={56} />
-        </div>
-
+        {/* App Title */}
         <h1 style={{
           fontSize: '3.25rem',
-          fontWeight: 800,
+          fontWeight: 900,
           color: '#0f172a',
-          letterSpacing: '-0.03em',
-          lineHeight: 1
+          letterSpacing: '-0.04em',
+          lineHeight: 1,
+          marginTop: '0.5rem'
         }}>
           MANAS
         </h1>
