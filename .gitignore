@@ -28,6 +28,10 @@ backend/manas.db
 
 # Environment variables & IDE
 .env
+.env.*
+*.env
+!.env.example
+!backend/.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -36,3 +40,7 @@ backend/manas.db
 .idea/
 .DS_Store
 Thumbs.db
+.agents/
+.stitch/
+.dart_tool/
+**/preview_crops/

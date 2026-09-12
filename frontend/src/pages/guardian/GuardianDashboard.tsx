@@ -3,10 +3,15 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend
 } from 'recharts';
 import {
-  ShieldCheck, UserCheck, Bell, Activity, Brain, Heart, Users, Calendar, Plus, CheckCircle, AlertTriangle, RefreshCw, Trash2, MapPin, Stethoscope, Phone, Search, Star, Clock, Video
+  ShieldCheck, UserCheck, Bell, Activity, Brain, Heart, Users, Calendar, Plus, CheckCircle, AlertTriangle, RefreshCw, Trash2, MapPin, Stethoscope, Phone, Search, Star, Clock, Video, User
 } from 'lucide-react';
 import { fetchApi } from '../../utils/api';
 import { Logo } from '../../components/Logo';
+import { CaregiverOnboardingWizard } from './CaregiverOnboardingWizard';
+import { CaregiverLocationMap } from './CaregiverLocationMap';
+import { usePatient, FamilyMember } from '../../context/PatientContext';
+import { useNavigation } from '../../context/NavigationContext';
+import { FamilyImage } from '../../components/FamilyImage';
 
 interface DoctorSpecialist {
   id: number;
@@ -27,14 +32,23 @@ interface DoctorSpecialist {
 }
 
 export const GuardianDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'alerts' | 'people' | 'memories' | 'places' | 'reminders' | 'doctors'>('overview');
+  const { currentPatientId, patientProfile, familyMembers, relationships, memories: contextMemories, places: contextPlaces, routines: contextRoutines, switchPatient, updateFamilyMember, addPerson, addMemory, addPlace } = usePatient();
+
+  const { currentLocation } = useNavigation();
+  const initialTab = (currentLocation.params?.tab as any) || 'overview';
+  const [activeTab, setActiveTab] = useState<'overview' | 'location' | 'analytics' | 'alerts' | 'people' | 'memories' | 'places' | 'reminders' | 'doctors' | 'onboarding'>(initialTab);
+
+  useEffect(() => {
+    if (currentLocation.params?.tab) {
+      setActiveTab(currentLocation.params.tab as any);
+    }
+  }, [currentLocation.params?.tab]);
   const [overviewData, setOverviewData] = useState<any>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [alerts, setAlerts] = useState<any[]>([]);
-  const [people, setPeople] = useState<any[]>([]);
-  const [memories, setMemories] = useState<any[]>([]);
-  const [places, setPlaces] = useState<any[]>([]);
-  const [reminders, setReminders] = useState<any[]>([]);
+
+  // Editing Family Member state
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
 
   // Form states
   const [newPersonName, setNewPersonName] = useState('');
@@ -62,7 +76,7 @@ export const GuardianDashboard: React.FC = () => {
   const [bookingNotes, setBookingNotes] = useState('');
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState<string | null>(null);
 
-  // Pre-populated regional Neurologists and Brain Specialists Database
+  // Doctors list
   const doctorsList: DoctorSpecialist[] = [
     {
       id: 1,
@@ -97,171 +111,143 @@ export const GuardianDashboard: React.FC = () => {
       reviewsCount: 98,
       consultationFee: 700,
       photoUrl: 'https://images.unsplash.com/photo-1594824813566-88855ce78347?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 3,
-      name: 'Dr. Bikramjit Das',
-      specialty: 'Senior Neurosurgeon & Brain Disorder Specialist',
-      category: 'Neurosurgeon',
-      hospital: 'NEIGRIHMS (North Eastern Regional Institute)',
-      address: 'Mawdiangdiang, Shillong, Meghalaya 793018',
-      experience: '19+ Years Experience',
-      phone: '+91 98620 44890',
-      email: 'dr.das@neigrihms.gov.in',
-      timings: 'Tue, Thu, Sat: 09:30 AM - 01:30 PM',
-      distance: '8.5 km away',
-      rating: 4.9,
-      reviewsCount: 215,
-      consultationFee: 500,
-      photoUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 4,
-      name: 'Dr. Sunita Roy',
-      specialty: 'Consultant Neurologist & Cognitive Rehabilitation Specialist',
-      category: 'Cognitive Specialist',
-      hospital: 'Civil Hospital Shillong & Neural Care Unit',
-      address: 'Laban, Shillong, Meghalaya 793004',
-      experience: '14+ Years Experience',
-      phone: '+91 97740 66321',
-      email: 'dr.sunitaroy@civilhealth.org',
-      timings: 'Mon, Wed, Fri: 11:00 AM - 03:00 PM',
-      distance: '3.1 km away',
-      rating: 4.7,
-      reviewsCount: 86,
-      consultationFee: 400,
-      photoUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80'
     }
   ];
 
-  const loadGuardianData = () => {
-    fetchApi<any>('/guardian/overview')
-      .then(res => setOverviewData(res))
-      .catch(() => {
-        setOverviewData({
-          patient: { name: 'Vivek Sharma', age: 74, emergency_contact: '+91 98640 12345' },
-          adherence_rate: 85.0,
-          cognitive_summary: { current_difficulty: 2, memory_score: 82.5, attention_score: 78.0, pattern_score: 80.0, recent_trend: 'Consistent High Engagement' }
-        });
-      });
+  const loadDataForPatient = (pid: string | number) => {
+    const isP2 = Number(pid) === 2;
 
-    fetchApi<any>('/guardian/analytics')
-      .then(res => setAnalyticsData(res))
-      .catch(() => {
-        setAnalyticsData({
-          cognitive_trend: [
-            { date: 'Sep 01', accuracy: 75, difficulty: 1, responseTime: 3.5 },
-            { date: 'Sep 02', accuracy: 80, difficulty: 1, responseTime: 3.2 },
-            { date: 'Sep 03', accuracy: 85, difficulty: 1, responseTime: 3.0 },
-            { date: 'Sep 04', accuracy: 88, difficulty: 2, responseTime: 2.8 }
-          ],
-          category_scores: [
-            { category: 'Memory Recall', score: 85 },
-            { category: 'Attention', score: 78 },
-            { category: 'Pattern Rec', score: 80 },
-            { category: 'Response Speed', score: 88 }
+    setOverviewData({
+      patient: {
+        id: patientProfile.id,
+        name: patientProfile.full_name,
+        age: patientProfile.age,
+        emergency_contact: patientProfile.emergency_contact
+      },
+      adherence_rate: isP2 ? 72.0 : 88.5,
+      cognitive_summary: {
+        current_difficulty: isP2 ? 1 : 2,
+        memory_score: isP2 ? 74.0 : 84.5,
+        attention_score: isP2 ? 70.0 : 79.0,
+        pattern_score: isP2 ? 75.0 : 81.0,
+        recent_trend: isP2 ? 'Mild Variability - Routine Support Active' : 'Consistent High Engagement'
+      }
+    });
+
+    setAnalyticsData({
+      cognitive_trend: isP2
+        ? [
+            { date: 'Sep 01', accuracy: 68, difficulty: 1, responseTime: 4.2 },
+            { date: 'Sep 02', accuracy: 70, difficulty: 1, responseTime: 4.0 },
+            { date: 'Sep 03', accuracy: 74, difficulty: 1, responseTime: 3.8 }
           ]
-        });
-      });
+        : [
+            { date: 'Sep 01', accuracy: 78, difficulty: 1, responseTime: 3.5 },
+            { date: 'Sep 02', accuracy: 82, difficulty: 1, responseTime: 3.2 },
+            { date: 'Sep 03', accuracy: 85, difficulty: 2, responseTime: 3.0 },
+            { date: 'Sep 04', accuracy: 89, difficulty: 2, responseTime: 2.8 }
+          ],
+      category_scores: [
+        { category: 'Memory Recall', score: isP2 ? 74 : 85 },
+        { category: 'Attention', score: isP2 ? 70 : 79 },
+        { category: 'Pattern Rec', score: isP2 ? 75 : 81 },
+        { category: 'Reasoning', score: isP2 ? 72 : 82 },
+        { category: 'Strategy', score: isP2 ? 68 : 76 },
+        { category: 'Recognition', score: isP2 ? 80 : 88 },
+        { category: 'Daily Routine', score: isP2 ? 82 : 90 }
+      ]
+    });
 
-    fetchApi<any[]>('/guardian/alerts')
-      .then(res => setAlerts(res || []))
+    // Load alerts from backend
+    fetchApi<any[]>(`/guardian/alerts?requested_patient_id=${pid}`)
+      .then(bAlerts => {
+        if (Array.isArray(bAlerts) && bAlerts.length > 0) {
+          setAlerts(bAlerts);
+        } else {
+          setAlerts(isP2 ? [
+            { id: 201, alert_type: 'Medication Reminder Pending', message: 'Biren Das morning BP medication is due.', severity: 'Medium', is_resolved: false, created_at: 'Today 08:30 AM' }
+          ] : [
+            { id: 101, alert_type: 'Cognitive Activity High Score', message: 'Prasad achieved 89% accuracy in Memory Recall today.', severity: 'Low', is_resolved: false, created_at: 'Today 10:15 AM' }
+          ]);
+        }
+      })
       .catch(() => {
-        setAlerts([
-          { id: 1, alert_type: 'Cognitive Activity High Score', message: 'Vivek achieved 92% accuracy in Memory Recall game today.', severity: 'Low', is_resolved: false, created_at: 'Today 10:15 AM' }
+        setAlerts(isP2 ? [
+          { id: 201, alert_type: 'Medication Reminder Pending', message: 'Biren Das morning BP medication is due.', severity: 'Medium', is_resolved: false, created_at: 'Today 08:30 AM' }
+        ] : [
+          { id: 101, alert_type: 'Cognitive Activity High Score', message: 'Prasad achieved 89% accuracy in Memory Recall today.', severity: 'Low', is_resolved: false, created_at: 'Today 10:15 AM' }
         ]);
       });
-
-    fetchApi<any[]>('/people').then(res => setPeople(res || [])).catch(() => {});
-    fetchApi<any[]>('/memories').then(res => setMemories(res || [])).catch(() => {});
-    fetchApi<any[]>('/places').then(res => setPlaces(res || [])).catch(() => {});
-    fetchApi<any[]>('/reminders').then(res => setReminders(res || [])).catch(() => {});
   };
 
   useEffect(() => {
-    loadGuardianData();
-  }, []);
+    loadDataForPatient(currentPatientId);
+  }, [currentPatientId, patientProfile]);
+
+  const handlePatientSelectChange = (pidStr: string) => {
+    const pId = Number(pidStr);
+    switchPatient(pId);
+  };
 
   const handleResolveAlert = async (alertId: number) => {
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, is_resolved: true } : a));
     try {
       await fetchApi(`/guardian/alerts/${alertId}/resolve`, { method: 'POST' });
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Backend resolve alert failed:', e);
+    }
   };
 
-  const handleAddPlace = async (e: React.FormEvent) => {
+  const handleAddPlace = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlaceName || !newPlaceAddress) return;
-    try {
-      const created = await fetchApi<any>('/places', {
-        method: 'POST',
-        body: {
-          name: newPlaceName,
-          category: newPlaceCategory,
-          address: newPlaceAddress,
-          latitude: parseFloat(newPlaceLat) || 25.5788,
-          longitude: parseFloat(newPlaceLng) || 91.8933,
-          notes: newPlaceNotes
-        }
-      });
-      setPlaces(prev => [...prev, created]);
-      setNewPlaceName('');
-      setNewPlaceAddress('');
-      setNewPlaceNotes('');
-    } catch (err) {
-      alert('Saved place added!');
-    }
+    addPlace({
+      name: newPlaceName,
+      category: newPlaceCategory,
+      address: newPlaceAddress,
+      latitude: parseFloat(newPlaceLat) || 25.5788,
+      longitude: parseFloat(newPlaceLng) || 91.8933,
+      notes: newPlaceNotes
+    });
+    setNewPlaceName('');
+    setNewPlaceAddress('');
+    setNewPlaceNotes('');
   };
 
-  const handleAddPerson = async (e: React.FormEvent) => {
+  const handleAddPerson = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPersonName || !newPersonRel) return;
-    try {
-      const created = await fetchApi<any>('/people', {
-        method: 'POST',
-        body: {
-          name: newPersonName,
-          relationship: newPersonRel,
-          notes: newPersonNotes,
-          photo_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80'
-        }
-      });
-      setPeople(prev => [...prev, created]);
-      setNewPersonName('');
-      setNewPersonRel('');
-      setNewPersonNotes('');
-    } catch (err) {
-      alert('Person added to local caregiver state!');
-    }
+    addPerson({
+      name: newPersonName,
+      relationship: newPersonRel,
+      notes: newPersonNotes,
+      photo_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80'
+    });
+    setNewPersonName('');
+    setNewPersonRel('');
+    setNewPersonNotes('');
   };
 
-  const handleAddMemory = async (e: React.FormEvent) => {
+  const handleAddMemory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMemoryTitle || !newMemoryDesc) return;
-    try {
-      const created = await fetchApi<any>('/memories', {
-        method: 'POST',
-        body: {
-          title: newMemoryTitle,
-          description: newMemoryDesc,
-          place: newMemoryPlace || 'Shillong',
-          memory_date: 'Present Day',
-          photo_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80'
-        }
-      });
-      setMemories(prev => [...prev, created]);
-      setNewMemoryTitle('');
-      setNewMemoryDesc('');
-      setNewMemoryPlace('');
-    } catch (err) {
-      alert('Memory added to caregiver state!');
-    }
+    addMemory({
+      title: newMemoryTitle,
+      description: newMemoryDesc,
+      place: newMemoryPlace || 'Shillong',
+      memory_date: 'Present Day',
+      photo_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
+      category: 'family'
+    });
+    setNewMemoryTitle('');
+    setNewMemoryDesc('');
+    setNewMemoryPlace('');
   };
 
   const handleConfirmBooking = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDoctorForBooking) return;
-    setBookingSuccessMsg(`Consultation booked successfully with ${selectedDoctorForBooking.name} for ${bookingDate || 'Tomorrow'} at ${bookingTime}! Confirmation details sent to Ravi Sharma (+91 98640 12345).`);
+    setBookingSuccessMsg(`Consultation booked successfully with ${selectedDoctorForBooking.name} for ${bookingDate || 'Tomorrow'} at ${bookingTime}! Details sent to emergency contact (${patientProfile.emergency_contact}).`);
     setTimeout(() => {
       setSelectedDoctorForBooking(null);
       setBookingSuccessMsg(null);
@@ -299,9 +285,36 @@ export const GuardianDashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Patient Selection Dropdown */}
+        <div style={{ marginBottom: '1.5rem', background: '#1e293b', padding: '0.75rem', borderRadius: '14px', border: '1px solid #334155' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+            Active Managed Patient
+          </label>
+          <select
+            value={currentPatientId}
+            onChange={(e) => handlePatientSelectChange(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              background: '#0f172a',
+              color: '#ffffff',
+              border: '1px solid #475569',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              cursor: 'pointer'
+            }}
+          >
+            <option value={1}>Patient 1: Prasad (Age 74)</option>
+            <option value={2}>Patient 2: Biren Das (Age 79)</option>
+          </select>
+        </div>
+
         {[
           { key: 'overview', label: 'Patient Overview', icon: UserCheck },
+          { key: 'location', label: 'Live Location', icon: MapPin },
           { key: 'analytics', label: 'Cognitive Analytics', icon: Activity },
+          { key: 'onboarding', label: 'Caregiver Setup Wizard', icon: Brain },
           { key: 'alerts', label: 'Alert Center', icon: Bell },
           { key: 'doctors', label: 'Connect a Doctor', icon: Stethoscope },
           { key: 'people', label: 'People Management', icon: Users },
@@ -351,10 +364,10 @@ export const GuardianDashboard: React.FC = () => {
         }}>
           <div>
             <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: '#0f172a' }}>
-              Patient Profile: {overviewData?.patient?.name || 'Vivek Sharma'}
+              Patient Profile: {patientProfile.full_name}
             </h1>
             <p style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>
-              Age {overviewData?.patient?.age || 74} • Emergency Contact: {overviewData?.patient?.emergency_contact || '+91 98640 12345'}
+              Age {patientProfile.age} • Emergency Contact: {patientProfile.emergency_contact}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '1rem' }}>
@@ -368,6 +381,19 @@ export const GuardianDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* TAB ONBOARDING WIZARD */}
+        {activeTab === 'onboarding' && (
+          <CaregiverOnboardingWizard onComplete={() => setActiveTab('overview')} />
+        )}
+
+        {/* TAB LIVE LOCATION */}
+        {activeTab === 'location' && (
+          <CaregiverLocationMap
+            patientId={currentPatientId}
+            patientName={patientProfile.full_name}
+          />
+        )}
 
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
@@ -396,47 +422,28 @@ export const GuardianDashboard: React.FC = () => {
                 Caregiver Awareness Summary
               </h4>
               <p style={{ color: '#334155', fontSize: '1rem', fontWeight: 500 }}>
-                Vivek is demonstrating active participation with a positive trend of "{overviewData?.cognitive_summary?.recent_trend || 'Consistent High Engagement'}". No high-risk activity anomalies detected today.
+                {patientProfile.full_name} is demonstrating active participation with a positive trend of "{overviewData?.cognitive_summary?.recent_trend || 'Consistent High Engagement'}".
               </p>
             </div>
           </div>
         )}
 
-        {/* TAB 2: ANALYTICS (Recharts) */}
+        {/* TAB 2: ANALYTICS */}
         {activeTab === 'analytics' && (
           <div>
             <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>
-                Cognitive Activity Trend
+                Cognitive Performance Trends for {patientProfile.full_name}
               </h3>
               <div style={{ width: '100%', height: 320 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={analyticsData?.cognitive_trend || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" stroke="#64748b" />
-                    <YAxis stroke="#64748b" />
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={[0, 100]} />
                     <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="accuracy" name="Activity Accuracy (%)" stroke="#0d9488" strokeWidth={3} activeDot={{ r: 8 }} />
-                    <Line type="monotone" dataKey="difficulty" name="Adaptive Difficulty Level" stroke="#6366f1" strokeWidth={3} />
+                    <Line type="monotone" dataKey="accuracy" stroke="#0d9488" strokeWidth={3} name="Accuracy %" />
                   </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>
-                Activity Category Scores
-              </h3>
-              <div style={{ width: '100%', height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData?.category_scores || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="category" stroke="#64748b" />
-                    <YAxis stroke="#64748b" domain={[0, 100]} />
-                    <Tooltip />
-                    <Bar dataKey="score" name="Performance Score" fill="#14b8a6" radius={[10, 10, 0, 0]} />
-                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -446,398 +453,296 @@ export const GuardianDashboard: React.FC = () => {
         {/* TAB 3: ALERTS */}
         {activeTab === 'alerts' && (
           <div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
-              Caregiver Notifications & Alerts
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>
+                Alert Center for {patientProfile.full_name}
+              </h3>
+              <button
+                onClick={() => {
+                  fetchApi<any[]>(`/guardian/alerts?requested_patient_id=${currentPatientId}`)
+                    .then(bAlerts => {
+                      if (Array.isArray(bAlerts)) setAlerts(bAlerts);
+                    })
+                    .catch(() => {});
+                }}
+                className="touch-target"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '10px',
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <RefreshCw size={14} /> Refresh Alerts
+              </button>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {alerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  style={{
-                    background: alert.is_resolved ? '#f8fafc' : '#ffffff',
-                    borderLeft: `6px solid ${alert.severity === 'High' ? '#ef4444' : (alert.severity === 'Medium' ? '#f59e0b' : '#10b981')}`,
-                    borderRadius: '16px',
-                    padding: '1.25rem 1.5rem',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', marginBottom: '0.2rem' }}>
-                      {alert.created_at || 'Today'} • Severity: {alert.severity}
-                    </div>
-                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
-                      {alert.alert_type}
-                    </h4>
-                    <p style={{ color: '#475569', fontSize: '1rem', marginTop: '0.2rem' }}>
-                      {alert.message}
-                    </p>
-                  </div>
-                  <div>
-                    {alert.is_resolved ? (
-                      <span style={{ color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <CheckCircle size={18} /> Resolved
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleResolveAlert(alert.id)}
-                        style={{
-                          background: '#0d9488',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '10px',
-                          fontWeight: 700,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Resolve Alert
-                      </button>
-                    )}
-                  </div>
+              {alerts.length === 0 ? (
+                <div style={{ background: '#ffffff', borderRadius: '16px', padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                  No active alerts for {patientProfile.full_name}.
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: CONNECT A DOCTOR (NEW FEATURE) */}
-        {activeTab === 'doctors' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <div>
-                <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a' }}>
-                  Connect a Doctor & Brain Specialist
-                </h3>
-                <p style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500, marginTop: '0.2rem' }}>
-                  Find top Neurologists, Brain Specialists, and Geriatric Psychiatrists in the North Eastern Region
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#ffffff', border: '1px solid #cbd5e1', padding: '0.65rem 1rem', borderRadius: '16px' }}>
-                <Search size={18} color="#64748b" />
-                <input
-                  type="text"
-                  placeholder="Search doctor, hospital, or city..."
-                  value={doctorSearch}
-                  onChange={e => setDoctorSearch(e.target.value)}
-                  style={{ border: 'none', outline: 'none', fontSize: '0.95rem', width: '220px' }}
-                />
-              </div>
-            </div>
-
-            {/* Category Filter Pills */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.75rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-              {['All', 'Neurologist', 'Geriatric Psychiatrist', 'Neurosurgeon', 'Cognitive Specialist'].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setDoctorCategoryFilter(cat)}
-                  style={{
-                    padding: '0.6rem 1.2rem',
-                    borderRadius: '20px',
-                    border: doctorCategoryFilter === cat ? 'none' : '1px solid #cbd5e1',
-                    background: doctorCategoryFilter === cat ? '#0f766e' : '#ffffff',
-                    color: doctorCategoryFilter === cat ? '#ffffff' : '#334155',
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {cat === 'All' ? '🏥 All Specialists' : cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Doctors Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              {filteredDoctors.map(doc => (
-                <div
-                  key={doc.id}
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: '24px',
-                    padding: '1.5rem',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '1.25rem'
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '1.25rem' }}>
-                    <img
-                      src={doc.photoUrl}
-                      alt={doc.name}
-                      style={{ width: '84px', height: '84px', borderRadius: '20px', objectFit: 'cover', border: '2px solid #0d9488' }}
-                    />
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ background: '#ccfbf1', color: '#0d9488', fontSize: '0.75rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '10px' }}>
-                          {doc.category}
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', color: '#f59e0b', fontWeight: 800, fontSize: '0.85rem' }}>
-                          <Star size={14} fill="#f59e0b" /> {doc.rating} ({doc.reviewsCount})
+              ) : (
+                alerts.map(a => {
+                  const isSkipped = a.alert_type === 'Reminder Skipped';
+                  return (
+                    <div
+                      key={a.id}
+                      style={{
+                        background: '#ffffff',
+                        border: `1.5px solid ${isSkipped ? '#fed7aa' : (a.is_resolved ? '#e2e8f0' : '#cbd5e1')}`,
+                        borderRadius: '18px',
+                        padding: '1.25rem 1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                      }}
+                    >
+                      <div style={{ flex: 1, paddingRight: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '1.15rem', fontWeight: 800, color: isSkipped ? '#c2410c' : '#0f172a' }}>
+                            {isSkipped ? '🔔 Reminder Skipped' : a.alert_type}
+                          </span>
+                          {isSkipped && (
+                            <span style={{ background: '#fff7ed', color: '#c2410c', fontSize: '0.75rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '10px', border: '1px solid #ffedd5' }}>
+                              Caregiver Attention Recommended
+                            </span>
+                          )}
+                          {a.is_resolved && (
+                            <span style={{ background: '#f0fdf4', color: '#16a34a', fontSize: '0.75rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '10px' }}>
+                              Resolved
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '1rem', color: '#334155', fontWeight: 500, margin: '0.35rem 0' }}>
+                          {a.message}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                          {a.event_time ? new Date(a.event_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (a.created_at || 'Today')}
                         </div>
                       </div>
-                      <h4 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', marginTop: '0.35rem' }}>
-                        {doc.name}
-                      </h4>
-                      <p style={{ color: '#4f46e5', fontWeight: 700, fontSize: '0.9rem' }}>
-                        {doc.specialty}
-                      </p>
-                      <p style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 500, marginTop: '0.25rem' }}>
-                        🏥 {doc.hospital}
-                      </p>
+                      {!a.is_resolved && (
+                        <button
+                          onClick={() => handleResolveAlert(a.id)}
+                          className="touch-target"
+                          style={{
+                            background: '#0d9488',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '12px',
+                            padding: '0.65rem 1.15rem',
+                            fontWeight: 800,
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 10px rgba(13, 148, 136, 0.25)'
+                          }}
+                        >
+                          Mark Resolved
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: DOCTORS */}
+        {activeTab === 'doctors' && (
+          <div>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
+              Connect Brain & Memory Specialists for {patientProfile.full_name}
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              {filteredDoctors.map(doc => (
+                <div key={doc.id} style={{ background: '#ffffff', borderRadius: '20px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 10px rgba(0,0,0,0.03)' }}>
+                  <img src={doc.photoUrl} alt={doc.name} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '14px', marginBottom: '1rem' }} />
+                  <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>{doc.name}</h4>
+                  <p style={{ color: '#4f46e5', fontWeight: 700, fontSize: '0.95rem' }}>{doc.specialty}</p>
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{doc.hospital}</p>
+                  <button onClick={() => setSelectedDoctorForBooking(doc)} style={{ width: '100%', background: '#0f766e', color: '#ffffff', padding: '0.75rem', borderRadius: '12px', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                    Book Appointment (₹{doc.consultationFee})
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: PEOPLE */}
+        {activeTab === 'people' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>
+                Centralized Family Memory Registry for {patientProfile.full_name}
+              </h3>
+              <div style={{ fontSize: '0.9rem', color: '#0d9488', fontWeight: 700, background: '#ccfbf1', padding: '0.4rem 0.85rem', borderRadius: '12px' }}>
+                {familyMembers.length} Family Profiles Enrolled
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.25rem' }}>
+              {familyMembers.map(m => (
+                <div key={m.id} style={{ background: '#ffffff', borderRadius: '18px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ position: 'relative', height: '150px', borderRadius: '14px', overflow: 'hidden', marginBottom: '0.85rem' }}>
+                      <FamilyImage src={m.imagePath} alt={m.name} relationship={m.relationship} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <span style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'rgba(15, 23, 42, 0.75)', color: '#38bdf8', padding: '0.2rem 0.5rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                        ID: {m.id}
+                      </span>
+                    </div>
+                    <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>{m.name}</h4>
+                    <p style={{ color: '#4f46e5', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.4rem' }}>{m.relationship}</p>
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', lineHeight: 1.4 }}>{m.notes || 'No extra details added.'}</p>
+                  </div>
+                  <button
+                    onClick={() => setEditingMember(m)}
+                    style={{ marginTop: '1rem', width: '100%', padding: '0.65rem', borderRadius: '12px', background: '#f1f5f9', color: '#0f766e', fontWeight: 800, fontSize: '0.9rem', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                  >
+                    ✏️ Edit Member
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* EDIT MEMBER MODAL */}
+            {editingMember && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+                <div style={{ background: '#ffffff', borderRadius: '24px', padding: '1.75rem', maxWidth: '480px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>
+                    Edit Family Member: {editingMember.id}
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem' }}>Name</label>
+                      <input
+                        type="text"
+                        value={editingMember.name}
+                        onChange={e => setEditingMember({ ...editingMember, name: e.target.value })}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid #cbd5e1', fontWeight: 700, fontSize: '1rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem' }}>Relationship</label>
+                      <input
+                        type="text"
+                        value={editingMember.relationship}
+                        onChange={e => setEditingMember({ ...editingMember, relationship: e.target.value })}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid #cbd5e1', fontWeight: 700, fontSize: '1rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem' }}>Image Path</label>
+                      <input
+                        type="text"
+                        value={editingMember.imagePath}
+                        onChange={e => setEditingMember({ ...editingMember, imagePath: e.target.value })}
+                        placeholder="/images/family/<filename>"
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid #cbd5e1', fontWeight: 700, fontSize: '1rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.35rem' }}>Notes / Memories</label>
+                      <textarea
+                        value={editingMember.notes || ''}
+                        onChange={e => setEditingMember({ ...editingMember, notes: e.target.value })}
+                        rows={3}
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid #cbd5e1', fontWeight: 600, fontSize: '0.95rem' }}
+                      />
                     </div>
                   </div>
 
-                  <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', color: '#334155' }}>
-                    <div>📍 <span style={{ fontWeight: 600 }}>{doc.address}</span> ({doc.distance})</div>
-                    <div>🕒 <span style={{ fontWeight: 600 }}>{doc.timings}</span></div>
-                    <div>💳 <span style={{ fontWeight: 600 }}>Consultation Fee: ₹{doc.consultationFee}</span></div>
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+                    <button
+                      onClick={() => setEditingMember(null)}
+                      style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', background: '#f1f5f9', color: '#475569', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
                     <button
                       onClick={() => {
-                        alert(`Calling ${doc.name} at ${doc.phone}...`);
+                        updateFamilyMember(editingMember.id, editingMember);
+                        setEditingMember(null);
                       }}
-                      style={{
-                        flex: 1,
-                        background: '#f0fdfa',
-                        border: '1px solid #ccfbf1',
-                        color: '#0d9488',
-                        borderRadius: '14px',
-                        padding: '0.75rem',
-                        fontWeight: 800,
-                        fontSize: '0.95rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem',
-                        cursor: 'pointer'
-                      }}
+                      style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', background: '#0f766e', color: '#ffffff', fontWeight: 800, border: 'none', cursor: 'pointer' }}
                     >
-                      <Phone size={18} /> Call Doctor
-                    </button>
-
-                    <button
-                      onClick={() => setSelectedDoctorForBooking(doc)}
-                      style={{
-                        flex: 1,
-                        background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '14px',
-                        padding: '0.75rem',
-                        fontWeight: 800,
-                        fontSize: '0.95rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)'
-                      }}
-                    >
-                      <Calendar size={18} /> Book Appointment
+                      Save Changes
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: PEOPLE MANAGEMENT */}
-        {activeTab === 'people' && (
-          <div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
-              Enrolled Familiar People
-            </h3>
-
-            {/* Form to Add Person */}
-            <form onSubmit={handleAddPerson} style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>+ Enroll New Person for Face Recognition</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <input
-                  type="text"
-                  placeholder="Full Name (e.g. Arun Sharma)"
-                  value={newPersonName}
-                  onChange={e => setNewPersonName(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Relationship (e.g. Grandson)"
-                  value={newPersonRel}
-                  onChange={e => setNewPersonRel(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Notes (e.g. Loves guitar)"
-                  value={newPersonNotes}
-                  onChange={e => setNewPersonNotes(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
               </div>
-              <button type="submit" style={{ background: '#0d9488', color: '#ffffff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                Enroll Person
-              </button>
-            </form>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-              {people.map(p => (
-                <div key={p.id} style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '20px', display: 'flex', gap: '1rem', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                  <img src={p.photo_url} alt={p.name} style={{ width: '64px', height: '64px', borderRadius: '16px', objectFit: 'cover' }} />
-                  <div>
-                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{p.name}</h4>
-                    <p style={{ color: '#4f46e5', fontWeight: 700, fontSize: '0.95rem' }}>{p.relationship}</p>
-                    <p style={{ color: '#64748b', fontSize: '0.85rem' }}>{p.notes}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
         )}
 
-        {/* TAB 6: MEMORIES MANAGEMENT */}
+        {/* TAB 6: MEMORIES */}
         {activeTab === 'memories' && (
           <div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
-              Personal Memory Album Manager
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
+              Memory Album for {patientProfile.full_name}
             </h3>
-
-            <form onSubmit={handleAddMemory} style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>+ Add New Memory</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <input
-                  type="text"
-                  placeholder="Memory Title (e.g. Shillong Hill Trip)"
-                  value={newMemoryTitle}
-                  onChange={e => setNewMemoryTitle(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Place (e.g. Shillong, Meghalaya)"
-                  value={newMemoryPlace}
-                  onChange={e => setNewMemoryPlace(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
-              </div>
-              <textarea
-                placeholder="Description of the memory..."
-                value={newMemoryDesc}
-                onChange={e => setNewMemoryDesc(e.target.value)}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', marginBottom: '1rem', minHeight: '80px' }}
-              />
-              <button type="submit" style={{ background: '#0d9488', color: '#ffffff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                Save Memory
-              </button>
-            </form>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {memories.map(m => (
-                <div key={m.id} style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '20px', display: 'flex', gap: '1.25rem', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                  <img src={m.photo_url} alt={m.title} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover' }} />
-                  <div>
-                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{m.title}</h4>
-                    <p style={{ color: '#475569', fontSize: '0.95rem' }}>"{m.description}"</p>
-                    <span style={{ fontSize: '0.85rem', color: '#0d9488', fontWeight: 700 }}>📍 {m.place}</span>
-                  </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+              {contextMemories.map(m => (
+                <div key={m.id} style={{ background: '#ffffff', borderRadius: '18px', padding: '1.25rem', border: '1px solid #e2e8f0' }}>
+                  {m.photo_url && <img src={m.photo_url} alt={m.title} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '12px', marginBottom: '0.75rem' }} />}
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{m.title}</h4>
+                  <p style={{ color: '#475569', fontSize: '0.9rem', margin: '0.4rem 0' }}>{m.description}</p>
+                  <p style={{ color: '#0d9488', fontWeight: 700, fontSize: '0.85rem' }}>{m.place}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* TAB 7: PLACES MANAGEMENT */}
+        {/* TAB 7: PLACES */}
         {activeTab === 'places' && (
           <div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
-              Saved Important Places Configurator
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
+              Saved Safe Places for {patientProfile.full_name}
             </h3>
-
-            <form onSubmit={handleAddPlace} style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-              <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>+ Add Important Place for Patient</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <input
-                  type="text"
-                  placeholder="Place Name (e.g. Shillong Medical Centre)"
-                  value={newPlaceName}
-                  onChange={e => setNewPlaceName(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
-                <select
-                  value={newPlaceCategory}
-                  onChange={e => setNewPlaceCategory(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                >
-                  <option value="Hospital">Hospital / Clinic</option>
-                  <option value="Home">Home</option>
-                  <option value="Family">Family Member Residence</option>
-                  <option value="Shop">Grocery / Pharmacy</option>
-                  <option value="Worship">Place of Worship / Park</option>
-                </select>
-                <input
-                  type="text"
-                  placeholder="Address (e.g. Laitumkhrah, Shillong)"
-                  value={newPlaceAddress}
-                  onChange={e => setNewPlaceAddress(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
-                />
-              </div>
-              <textarea
-                placeholder="Notes for elderly guidance..."
-                value={newPlaceNotes}
-                onChange={e => setNewPlaceNotes(e.target.value)}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', marginBottom: '1rem', minHeight: '60px' }}
-              />
-              <button type="submit" style={{ background: '#0d9488', color: '#ffffff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                Save Place
-              </button>
-            </form>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-              {places.map(p => (
-                <div key={p.id} style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '20px', display: 'flex', gap: '1.25rem', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                  <div style={{ background: '#e0f2fe', padding: '1rem', borderRadius: '16px', color: '#0284c7' }}>
-                    <MapPin size={32} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488' }}>{p.category}</span>
-                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{p.name}</h4>
-                    <p style={{ color: '#64748b', fontSize: '0.9rem' }}>{p.address}</p>
-                  </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+              {contextPlaces.map(pl => (
+                <div key={pl.id} style={{ background: '#ffffff', borderRadius: '18px', padding: '1.25rem', border: '1px solid #e2e8f0' }}>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{pl.name}</h4>
+                  <p style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.9rem' }}>{pl.category}</p>
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0.4rem 0' }}>{pl.address}</p>
+                  {pl.notes && <p style={{ color: '#334155', fontSize: '0.85rem' }}>{pl.notes}</p>}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* TAB 8: REMINDERS MANAGEMENT */}
+        {/* TAB 8: REMINDERS */}
         {activeTab === 'reminders' && (
           <div>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
-              Medication & Daily Reminders Configurator
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem' }}>
+              Daily Schedule & Reminders for {patientProfile.full_name}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {reminders.map(r => (
-                <div key={r.id} style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              {contextRoutines.map(r => (
+                <div key={r.id} style={{ background: '#ffffff', borderRadius: '16px', padding: '1.25rem', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#4f46e5' }}>{r.category}</span>
-                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{r.title}</h4>
-                    <p style={{ color: '#64748b', fontSize: '0.95rem' }}>Scheduled Time: {r.scheduled_time}</p>
+                    <span style={{ background: '#fef3c7', color: '#d97706', padding: '0.25rem 0.6rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.85rem' }}>
+                      {r.time}
+                    </span>
+                    <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', marginTop: '0.5rem' }}>{r.title}</h4>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem' }}>{r.description}</p>
                   </div>
-                  <div style={{ background: r.status === 'Completed' ? '#ccfbf1' : '#f1f5f9', color: r.status === 'Completed' ? '#0d9488' : '#64748b', padding: '0.4rem 0.85rem', borderRadius: '12px', fontWeight: 700 }}>
-                    {r.status}
+                  <div style={{ fontWeight: 800, color: r.completed ? '#10b981' : '#f59e0b' }}>
+                    {r.completed ? 'Completed' : 'Pending'}
                   </div>
                 </div>
               ))}
@@ -845,162 +750,6 @@ export const GuardianDashboard: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Doctor Consultation Booking Modal */}
-      {selectedDoctorForBooking && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2500,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '28px',
-            maxWidth: '520px',
-            width: '100%',
-            padding: '2rem',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
-            position: 'relative'
-          }}>
-            <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
-              Book Consultation
-            </h3>
-            <p style={{ color: '#0d9488', fontWeight: 700, fontSize: '1.05rem', marginBottom: '1.25rem' }}>
-              {selectedDoctorForBooking.name} • {selectedDoctorForBooking.specialty}
-            </p>
-
-            {bookingSuccessMsg ? (
-              <div style={{ background: '#f0fdfa', border: '2px solid #0d9488', borderRadius: '18px', padding: '1.25rem', color: '#0d9488', fontWeight: 700, textAlign: 'center' }}>
-                <CheckCircle size={40} style={{ margin: '0 auto 0.75rem', display: 'block' }} />
-                {bookingSuccessMsg}
-              </div>
-            ) : (
-              <form onSubmit={handleConfirmBooking} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '0.35rem' }}>
-                    Consultation Mode
-                  </label>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setBookingMode('In-Person')}
-                      style={{
-                        flex: 1,
-                        padding: '0.75rem',
-                        borderRadius: '12px',
-                        border: bookingMode === 'In-Person' ? '2px solid #0d9488' : '1px solid #cbd5e1',
-                        background: bookingMode === 'In-Person' ? '#f0fdfa' : '#ffffff',
-                        color: bookingMode === 'In-Person' ? '#0d9488' : '#64748b',
-                        fontWeight: 800,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🏥 In-Person OPD
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBookingMode('Video Call')}
-                      style={{
-                        flex: 1,
-                        padding: '0.75rem',
-                        borderRadius: '12px',
-                        border: bookingMode === 'Video Call' ? '2px solid #0d9488' : '1px solid #cbd5e1',
-                        background: bookingMode === 'Video Call' ? '#f0fdfa' : '#ffffff',
-                        color: bookingMode === 'Video Call' ? '#0d9488' : '#64748b',
-                        fontWeight: 800,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      📹 Video Tele-call
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '0.35rem' }}>
-                      Select Date
-                    </label>
-                    <input
-                      type="date"
-                      value={bookingDate}
-                      onChange={e => setBookingDate(e.target.value)}
-                      style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '0.35rem' }}>
-                      Time Slot
-                    </label>
-                    <select
-                      value={bookingTime}
-                      onChange={e => setBookingTime(e.target.value)}
-                      style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none' }}
-                    >
-                      <option value="10:00 AM">10:00 AM</option>
-                      <option value="11:30 AM">11:30 AM</option>
-                      <option value="02:00 PM">02:00 PM</option>
-                      <option value="04:30 PM">04:30 PM</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '0.35rem' }}>
-                    Notes / Symptoms for Doctor
-                  </label>
-                  <textarea
-                    placeholder="Briefly describe patient cognitive symptoms or routine updates..."
-                    value={bookingNotes}
-                    onChange={e => setBookingNotes(e.target.value)}
-                    style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', minHeight: '75px' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <button
-                    type="submit"
-                    style={{
-                      flex: 1,
-                      background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '0.85rem',
-                      borderRadius: '14px',
-                      fontWeight: 800,
-                      fontSize: '1.1rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Confirm Appointment (₹{selectedDoctorForBooking.consultationFee})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDoctorForBooking(null)}
-                    style={{
-                      background: '#f1f5f9',
-                      border: 'none',
-                      color: '#64748b',
-                      padding: '0.85rem 1.25rem',
-                      borderRadius: '14px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

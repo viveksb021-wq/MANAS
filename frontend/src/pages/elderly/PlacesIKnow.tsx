@@ -1,49 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, Navigation, Phone, Globe } from 'lucide-react';
+import { MapPin, Navigation, Phone, Globe } from 'lucide-react';
 import { fetchApi } from '../../utils/api';
 import { speakText } from '../../utils/speech';
 import { useOffline } from '../../context/OfflineContext';
 import { ManasLoader } from '../../components/ManasLoader';
 import { PageTransition } from '../../components/PageTransition';
+import { BackButton } from '../../components/BackButton';
+import { usePatient } from '../../context/PatientContext';
 
 interface PlacesIKnowProps {
-  onBack: () => void;
+  onBack?: () => void;
   initialSelectedPlaceId?: number | null;
 }
 
 export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelectedPlaceId }) => {
-  const [places, setPlaces] = useState<any[]>([]);
+  const { places: contextPlaces } = usePatient();
   const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
   const [isGuidanceActive, setIsGuidanceActive] = useState(false);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const { isOnline } = useOffline();
 
+  const places = contextPlaces.length > 0 ? contextPlaces : [
+    { id: 1, name: 'Shillong Medical Centre', category: 'Hospital', address: 'Laitumkhrah, Shillong, Meghalaya 793003', latitude: 25.5788, longitude: 91.8933, notes: "Dr. Haren Barua's clinic. Open 9 AM - 5 PM.", photo_url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80' },
+    { id: 2, name: 'Home in Laitumkhrah', category: 'Home', address: 'Main Road, Laitumkhrah, Shillong', latitude: 25.5711, longitude: 91.8890, notes: 'Family residence.', photo_url: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=600&q=80' }
+  ];
+
   useEffect(() => {
-    fetchApi<any[]>('/places')
-      .then(data => {
-        if (data && data.length > 0) {
-          setPlaces(data);
-          if (initialSelectedPlaceId) {
-            const found = data.find(p => p.id === initialSelectedPlaceId);
-            if (found) setSelectedPlace(found);
-            else setSelectedPlace(data[0]);
-          } else {
-            setSelectedPlace(data[0]);
-          }
-        } else {
-          // Pre-populated fallback
-          const fallbackPlaces = [
-            { id: 1, name: 'Shillong Medical Centre', category: 'Hospital', address: 'Laitumkhrah, Shillong, Meghalaya 793003', latitude: 25.5788, longitude: 91.8933, notes: "Dr. Haren Barua's clinic. Open 9 AM - 5 PM.", photo_url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80' },
-            { id: 2, name: 'Home in Laitumkhrah', category: 'Home', address: 'Main Road, Laitumkhrah, Shillong', latitude: 25.5711, longitude: 91.8890, notes: 'Family residence.', photo_url: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=600&q=80' },
-            { id: 3, name: "Arun's Residence", category: 'Family', address: 'GS Road, Guwahati, Assam 781005', latitude: 26.1445, longitude: 91.7362, notes: "Grandson Arun's home.", photo_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80' },
-            { id: 4, name: "Ward's Lake & Park", category: 'Worship', address: 'Police Bazar, Shillong, Meghalaya', latitude: 25.5760, longitude: 91.8845, notes: 'Favorite morning walk spot with pine trees.', photo_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80' }
-          ];
-          setPlaces(fallbackPlaces);
-          setSelectedPlace(fallbackPlaces[0]);
-        }
-      })
-      .catch(() => {});
-  }, [initialSelectedPlaceId]);
+    if (places.length > 0) {
+      if (initialSelectedPlaceId) {
+        const found = places.find(p => p.id === initialSelectedPlaceId);
+        if (found) setSelectedPlace(found);
+        else setSelectedPlace(places[0]);
+      } else if (!selectedPlace) {
+        setSelectedPlace(places[0]);
+      }
+    }
+  }, [places, initialSelectedPlaceId]);
 
   const handleSelectPlace = (place: any) => {
     setSelectedPlace(place);
@@ -74,18 +66,74 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '1rem' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-          <button onClick={onBack} style={{ background: '#ffffff', border: '2px solid #cbd5e1', padding: '0.75rem 1.25rem', borderRadius: '18px', fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#334155' }}>
-            <ArrowLeft size={22} /> Home
-          </button>
+          <BackButton label="Home" onClick={onBack} variant="patient" />
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a' }}>
             PLACES I KNOW
           </h1>
         </div>
 
+        {/* Current Location Safe Zone Pulse Badge (From Stitch Design) */}
+        <div style={{
+          background: '#f0fdfa',
+          border: '3px solid #99f6e4',
+          borderRadius: '20px',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.85rem'
+        }}>
+          <div style={{ position: 'relative', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', background: '#0d9488', opacity: 0.4, animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' }} />
+            <span style={{ position: 'relative', width: '10px', height: '10px', borderRadius: '50%', background: '#0d9488' }} />
+          </div>
+          <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0f766e' }}>
+            📍 You are currently at Home in Laitumkhrah (Safe Zone)
+          </span>
+        </div>
+
+        {/* PROMINENT TAKE ME HOME NOW Action Banner (From Stitch Design) */}
+        <button
+          onClick={() => {
+            const homePlace = places.find(p => p.category.toLowerCase() === 'home') || places[0];
+            setSelectedPlace(homePlace);
+            handleShowRoute();
+          }}
+          style={{
+            width: '100%',
+            background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+            color: '#ffffff',
+            borderRadius: '28px',
+            padding: '1.5rem 1.75rem',
+            border: '3px solid #134e4a',
+            boxShadow: '0 15px 35px rgba(13, 148, 136, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.75rem',
+            textAlign: 'left'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Navigation size={38} color="#ffffff" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                TAKE ME HOME NOW
+              </h2>
+              <p style={{ fontSize: '1.15rem', color: '#ccfbf1', fontWeight: 600, marginTop: '0.2rem' }}>
+                🔊 Voice Navigation & Turn-by-Turn Route Ready
+              </p>
+            </div>
+          </div>
+          <span style={{ fontSize: '2.5rem', opacity: 0.9 }}>➔</span>
+        </button>
+
         {/* Network / Offline Map Banner */}
         <div style={{
-          background: isOnline ? '#f0fdfa' : '#fff1f2',
-          border: `2px solid ${isOnline ? '#ccfbf1' : '#f43f5e'}`,
+          background: isOnline ? '#ffffff' : '#fff1f2',
+          border: `2px solid ${isOnline ? '#cbd5e1' : '#f43f5e'}`,
           borderRadius: '16px',
           padding: '0.75rem 1.25rem',
           marginBottom: '1.25rem',
@@ -98,7 +146,7 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Globe size={20} />
-            <span>{isOnline ? '🟢 Connected (Live Map Tiles Active)' : '🔴 Offline Maps Active (Saved Tile Data)'}</span>
+            <span>{isOnline ? '🟢 Connected (Live OpenStreetMap Active)' : '🔴 Offline Maps Active (Saved Local Tiles)'}</span>
           </div>
           <span style={{ fontSize: '0.85rem', opacity: 0.9 }}>OpenStreetMap</span>
         </div>
@@ -348,8 +396,8 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
 
                 <button
                   onClick={() => {
-                    speakText("Calling your guardian Ravi Sharma.");
-                    alert("Calling Guardian Ravi Sharma (+91 98640 12345)...");
+                    speakText("Calling your guardian Ravi.");
+                    alert("Calling Guardian Ravi (+91 98640 12345)...");
                   }}
                   style={{
                     background: '#ffe4e6',

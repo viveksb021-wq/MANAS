@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sun, Moon, Volume2, Globe, Eye, Zap } from 'lucide-react';
 import { useAuth, LanguageCode } from '../context/AuthContext';
+import { SUPPORTED_LANGUAGES } from '../config/languages';
 
 interface AccessibilityModalProps {
   isOpen: boolean;
@@ -8,8 +9,7 @@ interface AccessibilityModalProps {
 }
 
 export const AccessibilityModal: React.FC<AccessibilityModalProps> = ({ isOpen, onClose }) => {
-  const { isHighContrast, toggleHighContrast, language, setLanguage } = useAuth();
-  const [textSizeScale, setTextSizeScale] = useState<number>(1.15);
+  const { isHighContrast, toggleHighContrast, language, setLanguage, textSizeScale, setTextSizeScale } = useAuth();
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
   const [isReducedMotion, setIsReducedMotion] = useState<boolean>(false);
 
@@ -128,11 +128,11 @@ export const AccessibilityModal: React.FC<AccessibilityModalProps> = ({ isOpen, 
               outline: 'none'
             }}
           >
-            <option value="en">English</option>
-            <option value="as">অসমীয়া (Assamese)</option>
-            <option value="bn">বাংলা (Bengali)</option>
-            <option value="mn">মৈতৈলোন্ (Manipuri)</option>
-            <option value="hi">हिंदी (Hindi)</option>
+            {SUPPORTED_LANGUAGES.map(lang => (
+              <option key={lang.code} value={lang.code}>
+                {lang.native} ({lang.label})
+              </option>
+            ))}
           </select>
         </div>
 

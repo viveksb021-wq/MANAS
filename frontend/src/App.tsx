@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PatientProvider, usePatient } from './context/PatientContext';
 import { OfflineProvider } from './context/OfflineContext';
+import { NavigationProvider, useNavigation } from './context/NavigationContext';
 import { LandingPage } from './pages/LandingPage';
 import { ElderlyLogin } from './pages/elderly/ElderlyLogin';
 import { GuardianLogin } from './pages/guardian/GuardianLogin';
@@ -11,175 +13,180 @@ import { MyMemories } from './pages/elderly/MyMemories';
 import { PlacesIKnow } from './pages/elderly/PlacesIKnow';
 import { AskManasPage } from './pages/elderly/AskManasPage';
 import { TodaySchedule } from './pages/elderly/TodaySchedule';
+import { CognitiveAssessmentHub } from './pages/elderly/CognitiveAssessmentHub';
 import { GuardianDashboard } from './pages/guardian/GuardianDashboard';
 import { AccessibilityModal } from './components/AccessibilityModal';
+import { ManasFloatingAssistant } from './components/ManasFloatingAssistant';
+import { PatientAppShell } from './components/PatientAppShell';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { SihDemoBar } from './components/SihDemoBar';
 import { ArrowRight } from 'lucide-react';
 
-type AppFlow = 'landing' | 'patient_login' | 'guardian_login' | 'patient_app' | 'guardian_app';
-
 const MainAppContent: React.FC = () => {
-  const { role, login } = useAuth();
+  const { role, login, isAuthenticated, isHighContrast } = useAuth();
+  const { switchPatient } = usePatient();
+  const { currentLocation, navigate } = useNavigation();
   const [showOpeningSplash, setShowOpeningSplash] = useState(true);
-  const [appFlow, setAppFlow] = useState<AppFlow>('landing');
-  const [currentPatientScreen, setCurrentPatientScreen] = useState<string>('home');
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
 
+  const { flow, screen } = currentLocation;
+
+  // ROUTE PROTECTION GUARD (FAIL-CLOSED)
+  useEffect(() => {
+    if (!showOpeningSplash) {
+      if (flow === 'patient_app' && (!isAuthenticated || role !== 'patient')) {
+        console.warn('Unauthorized access attempt to Patient App. Redirecting to Patient Login.');
+        navigate('patient_login', {}, 'patient_login');
+      } else if (flow === 'guardian_app' && (!isAuthenticated || role !== 'guardian')) {
+        console.warn('Unauthorized access attempt to Guardian App. Redirecting to Guardian Login.');
+        navigate('guardian_login', {}, 'guardian_login');
+      }
+    }
+  }, [flow, isAuthenticated, role, showOpeningSplash]);
+
   if (showOpeningSplash) {
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: '#0f172a',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        padding: '1.5rem'
-      }}>
-        <div style={{
-          maxWidth: '680px',
-          width: '100%',
-          background: '#1e293b',
-          borderRadius: '28px',
+      <div
+        onClick={() => setShowOpeningSplash(false)}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: '#000000',
+          zIndex: 9999,
           overflow: 'hidden',
-          border: '2px solid #334155',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}>
-          {/* Opening Video Animation Player */}
-          <div style={{ width: '100%', maxHeight: '440px', background: '#000000', display: 'flex', justifyContent: 'center' }}>
-            <video
-              src="/opening_animation.mp4"
-              autoPlay
-              muted
-              playsInline
-              onEnded={() => setShowOpeningSplash(false)}
-              style={{
-                width: '100%',
-                maxHeight: '440px',
-                objectFit: 'contain'
-              }}
-            />
-          </div>
-
-          {/* Branding & Enter App Control */}
-          <div style={{
+          cursor: 'pointer'
+        }}
+      >
+        {/* Full-Screen Animated Video */}
+        <video
+          src="/opening_animation.mp4"
+          autoPlay
+          muted
+          playsInline
+          onEnded={() => setShowOpeningSplash(false)}
+          style={{
             width: '100%',
-            padding: '1.25rem 1.5rem',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block'
+          }}
+        />
+
+        {/* Floating Skip / Continue Control */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowOpeningSplash(false);
+          }}
+          aria-label="Skip to main app"
+          style={{
+            position: 'absolute',
+            bottom: '2rem',
+            right: '2rem',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            color: '#ffffff',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            padding: '0.75rem 1.4rem',
+            borderRadius: '9999px',
+            fontWeight: 700,
+            fontSize: '1rem',
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            background: '#1e293b'
-          }}>
-            <div>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                MANAS
-              </h2>
-              <p style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>
-                Neural Memory Companion • Opening Log Animation
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowOpeningSplash(false)}
-              style={{
-                background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                color: '#ffffff',
-                border: 'none',
-                padding: '0.75rem 1.4rem',
-                borderRadius: '16px',
-                fontWeight: 800,
-                fontSize: '1rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                boxShadow: '0 8px 20px rgba(13, 148, 136, 0.4)'
-              }}
-            >
-              Continue <ArrowRight size={18} />
-            </button>
-          </div>
-        </div>
+            gap: '0.5rem',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
+            transition: 'all 0.2s ease',
+            zIndex: 10
+          }}
+        >
+          Skip <ArrowRight size={18} />
+        </button>
       </div>
     );
   }
 
+  const metaEnv = (import.meta as any).env || {};
+  const showDemoBar = metaEnv.DEV || metaEnv.VITE_ENABLE_DEMO_BAR === 'true';
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fdfbf7' }}>
-      {/* Main View Router based on App Flow */}
-      <div style={{ flex: 1 }}>
-        {appFlow === 'landing' && (
+    <div className={isHighContrast ? 'high-contrast' : ''} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: isHighContrast ? '#000000' : '#fdfbf7' }}>
+      {/* Main View Router based on NavigationContext history */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {flow === 'landing' && (
           <LandingPage
             onSelectRole={(choice) => {
-              if (choice === 'patient_login') setAppFlow('patient_login');
-              else setAppFlow('guardian_login');
+              if (choice === 'patient_login') navigate('patient_login', {}, 'patient_login');
+              else navigate('guardian_login', {}, 'guardian_login');
             }}
           />
         )}
 
-        {appFlow === 'patient_login' && (
+        {flow === 'patient_login' && (
           <ElderlyLogin
-            onBack={() => setAppFlow('landing')}
-            onSuccessLogin={() => {
-              login('patient');
-              setAppFlow('patient_app');
-              setCurrentPatientScreen('home');
+            onSuccessLogin={(method) => {
+              login('patient', 1, method || 'pin');
+              switchPatient(1);
+              navigate('home', {}, 'patient_app');
             }}
           />
         )}
 
-        {appFlow === 'guardian_login' && (
+        {flow === 'guardian_login' && (
           <GuardianLogin
-            onBack={() => setAppFlow('landing')}
-            onSuccessLogin={() => {
-              login('guardian');
-              setAppFlow('guardian_app');
+            onBack={() => navigate('landing', {}, 'landing')}
+            onSuccessLogin={(dest) => {
+              login('guardian', 1, 'credentials');
+              navigate('overview', dest === 'onboarding' ? { tab: 'onboarding' } : {}, 'guardian_app');
             }}
           />
         )}
 
-        {appFlow === 'patient_app' && (
-          <div>
-            {currentPatientScreen === 'home' && (
-              <PatientHome onNavigate={(screen) => setCurrentPatientScreen(screen)} />
+        {flow === 'patient_app' && isAuthenticated && role === 'patient' && (
+          <PatientAppShell>
+            {screen === 'home' && (
+              <PatientHome onNavigate={(s) => navigate(s, {}, 'patient_app')} />
             )}
-            {currentPatientScreen === 'games' && (
-              <PlayAndTrainHub onBack={() => setCurrentPatientScreen('home')} />
+            {screen === 'games' && (
+              <PlayAndTrainHub onBack={() => navigate('home', {}, 'patient_app')} />
             )}
-            {currentPatientScreen === 'people' && (
-              <PeopleIKnow onBack={() => setCurrentPatientScreen('home')} />
+            {screen === 'people' && (
+              <PeopleIKnow />
             )}
-            {currentPatientScreen === 'memories' && (
-              <MyMemories onBack={() => setCurrentPatientScreen('home')} />
+            {screen === 'memories' && (
+              <MyMemories />
             )}
-            {currentPatientScreen === 'places' && (
-              <PlacesIKnow onBack={() => setCurrentPatientScreen('home')} initialSelectedPlaceId={selectedPlaceId} />
+            {screen === 'places' && (
+              <PlacesIKnow initialSelectedPlaceId={selectedPlaceId} />
             )}
-            {currentPatientScreen === 'ask' && (
+            {screen === 'ask' && (
               <AskManasPage
-                onBack={() => setCurrentPatientScreen('home')}
-                onNavigate={(screen, placeId) => {
+                onNavigate={(s, placeId) => {
                   if (placeId) setSelectedPlaceId(placeId);
-                  setCurrentPatientScreen(screen === '/places' ? 'places' : (screen === '/today' ? 'today' : (screen === '/memories' ? 'memories' : 'home')));
+                  const targetScreen = s === '/places' ? 'places' : (s === '/today' ? 'today' : (s === '/memories' ? 'memories' : 'home'));
+                  navigate(targetScreen, {}, 'patient_app');
                 }}
               />
             )}
-            {currentPatientScreen === 'today' && (
-              <TodaySchedule onBack={() => setCurrentPatientScreen('home')} />
+            {screen === 'today' && (
+              <TodaySchedule />
             )}
-          </div>
+            {screen === 'assessment' && (
+              <CognitiveAssessmentHub />
+            )}
+          </PatientAppShell>
         )}
 
-        {appFlow === 'guardian_app' && (
-          <GuardianDashboard />
+        {flow === 'guardian_app' && isAuthenticated && role === 'guardian' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {showDemoBar && <SihDemoBar />}
+            <GuardianDashboard />
+          </div>
         )}
       </div>
 
@@ -194,11 +201,17 @@ const MainAppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <OfflineProvider>
-        <MainAppContent />
-      </OfflineProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <PatientProvider>
+          <OfflineProvider>
+            <NavigationProvider>
+              <MainAppContent />
+            </NavigationProvider>
+          </OfflineProvider>
+        </PatientProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 

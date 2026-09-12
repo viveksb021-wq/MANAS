@@ -8,11 +8,39 @@ from app.models import (
     Alert, Game, GameSession, GameResult, Place
 )
 
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+from app.auth import hash_password
+
+def ensure_schema_migrations():
+    """Ensure SQLite table columns match updated models without requiring manual DB deletion."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        for table in Base.metadata.sorted_tables:
+            try:
+                if engine.dialect.name == "sqlite":
+                    result = conn.execute(text(f"PRAGMA table_info({table.name})")).fetchall()
+                    existing_cols = {row[1] for row in result}
+                else:
+                    result = conn.execute(text(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table.name}'")).fetchall()
+                    existing_cols = {row[0] for row in result}
+
+                if not existing_cols:
+                    continue
+
+                for col in table.columns:
+                    if col.name not in existing_cols:
+                        col_type = col.type.compile(engine.dialect)
+                        try:
+                            conn.execute(text(f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type}"))
+                            conn.commit()
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
 
 def seed_database():
     Base.metadata.create_all(bind=engine)
+    ensure_schema_migrations()
     db: Session = SessionLocal()
 
     try:
@@ -28,7 +56,7 @@ def seed_database():
             email="ravi@manas.org",
             hashed_password=hash_password("ravi123"),
             role="guardian",
-            full_name="Ravi Sharma"
+            full_name="Ravi"
         )
         db.add(guardian_user)
         db.commit()
@@ -43,12 +71,12 @@ def seed_database():
         db.commit()
         db.refresh(guardian)
 
-        # 2. Create Patient User: Vivek
+        # 2. Create Patient User: Prasad
         patient_user = User(
             email="vivek@manas.org",
             hashed_password=hash_password("vivek123"),
             role="patient",
-            full_name="Vivek Sharma"
+            full_name="Prasad"
         )
         db.add(patient_user)
         db.commit()
@@ -83,7 +111,7 @@ def seed_database():
         # 4. Enrolled Familiar People (Son, Daughter, Grandson, Daughter-in-law, Doctor)
         person1 = Person(
             patient_id=patient.id,
-            name="Ravi Sharma",
+            name="Ravi",
             relationship="Son",
             photo_url="/family/son.jpg",
             notes="Your son. Visits every weekend and calls daily.",
@@ -91,7 +119,7 @@ def seed_database():
         )
         person2 = Person(
             patient_id=patient.id,
-            name="Meera Sharma",
+            name="Meera",
             relationship="Daughter",
             photo_url="/family/daughter.jpg",
             notes="Your daughter. Lives nearby in Shillong.",
@@ -99,7 +127,7 @@ def seed_database():
         )
         person3 = Person(
             patient_id=patient.id,
-            name="Arun Sharma",
+            name="Arun",
             relationship="Grandson",
             photo_url="/family/grandson.jpg",
             notes="Your grandson. 14 years old. Loves playing acoustic guitar.",
@@ -107,7 +135,7 @@ def seed_database():
         )
         person4 = Person(
             patient_id=patient.id,
-            name="Sunita Sharma",
+            name="Sunita",
             relationship="Daughter-in-law",
             photo_url="/family/daughter_in_law.jpg",
             notes="Your daughter-in-law. Coordinates morning tea & daily medications.",

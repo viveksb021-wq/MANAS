@@ -1,180 +1,134 @@
 import React from 'react';
-import { useAuth, LanguageCode } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
-import { Wifi, WifiOff, RefreshCw, UserCheck, ShieldCheck, Sun, Moon, Globe } from 'lucide-react';
+import { User, Wifi, WifiOff } from 'lucide-react';
+import { HamburgerMenu } from './HamburgerMenu';
 
 interface SihDemoBarProps {
   onOpenAccessibility?: () => void;
 }
 
-export const SihDemoBar: React.FC<SihDemoBarProps> = ({ onOpenAccessibility }) => {
-  const { role, login, language, setLanguage, isHighContrast, toggleHighContrast } = useAuth();
-  const { isOnline, syncStatus, pendingSyncCount, toggleSimulatedOffline, triggerManualSync } = useOffline();
+export const SihDemoBar: React.FC<SihDemoBarProps> = () => {
+  const { user, role } = useAuth();
+  const { isOnline, syncStatus, pendingSyncCount, toggleSimulatedOffline } = useOffline();
+
+  const patientName = user?.name || (role === 'guardian' ? 'Ravi' : 'Prasad');
+
+  const getStatusDotColor = () => {
+    if (!isOnline) return '#ef4444';
+    if (syncStatus === 'syncing') return '#f59e0b';
+    return '#10b981';
+  };
+
+  const getStatusText = () => {
+    if (!isOnline) return 'Offline';
+    if (syncStatus === 'syncing') return 'Syncing...';
+    return 'Online';
+  };
 
   return (
-    <div style={{
-      background: '#0f172a',
-      color: '#ffffff',
-      padding: '0.5rem 1rem',
-      fontSize: '0.875rem',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-      gap: '0.75rem',
-      borderBottom: '2px solid #334155',
-      zIndex: 1000,
-      position: 'relative'
-    }}>
-      {/* SIH Hackathon Identifier */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span style={{
-          background: '#0d9488',
-          color: '#ffffff',
-          fontWeight: 800,
-          fontSize: '0.75rem',
-          padding: '0.15rem 0.5rem',
-          borderRadius: '4px'
-        }}>
-          SIH 2026
-        </span>
-        <span style={{ fontWeight: 600 }}>MANAS Demo Toolbar</span>
-      </div>
+    <header
+      role="banner"
+      className="app-main-header"
+      style={{
+        background: 'rgba(255, 255, 255, 0.82)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        color: '#0f172a',
+        padding: '0.65rem 1.5rem',
+        fontSize: '0.9rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: '64px',
+        maxHeight: '70px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.65)',
+        boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.04)',
+        zIndex: 1000,
+        position: 'sticky',
+        top: 0
+      }}
+    >
+      {/* Left: Minimal / Clean Area */}
+      <div style={{ display: 'flex', alignItems: 'center' }} />
 
-      {/* Control Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-        {/* Role Switcher */}
-        <div style={{ display: 'flex', background: '#1e293b', borderRadius: '8px', padding: '2px' }}>
-          <button
-            onClick={() => login('patient')}
-            style={{
-              padding: '0.35rem 0.75rem',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              background: role === 'patient' ? '#0d9488' : 'transparent',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem'
-            }}
-          >
-            <UserCheck size={14} /> Elderly (Vivek)
-          </button>
-          <button
-            onClick={() => login('guardian')}
-            style={{
-              padding: '0.35rem 0.75rem',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              background: role === 'guardian' ? '#6366f1' : 'transparent',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem'
-            }}
-          >
-            <ShieldCheck size={14} /> Guardian (Ravi)
-          </button>
-        </div>
+      {/* Right Cluster: STATUS -> PATIENT -> HAMBURGER SETTINGS */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
 
-        {/* Offline / Online Network Status Toggle */}
+        {/* Compact Online/Offline Status Indicator */}
         <button
           onClick={toggleSimulatedOffline}
-          title="Click to toggle network online/offline mode to test offline synchronization"
+          className="touch-target"
+          title="Click to toggle network online/offline simulation mode"
+          aria-label={`Network status: ${getStatusText()}. Click to toggle.`}
           style={{
-            padding: '0.35rem 0.75rem',
-            borderRadius: '6px',
-            fontSize: '0.8rem',
+            padding: '0.4rem 0.85rem',
+            borderRadius: '20px',
+            fontSize: '0.85rem',
             fontWeight: 700,
-            background: !isOnline ? '#ef4444' : (syncStatus === 'syncing' ? '#eab308' : '#10b981'),
-            color: '#ffffff',
-            display: 'flex',
+            background: !isOnline ? '#fff1f2' : (syncStatus === 'syncing' ? '#fef3c7' : '#f0fdfa'),
+            color: !isOnline ? '#be123c' : (syncStatus === 'syncing' ? '#b45309' : '#0f766e'),
+            border: `1px solid ${!isOnline ? '#fecdd3' : (syncStatus === 'syncing' ? '#fde68a' : '#ccfbf1')}`,
+            display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.35rem'
+            gap: '0.45rem',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
           }}
         >
-          {!isOnline ? <WifiOff size={14} /> : <Wifi size={14} />}
-          {!isOnline ? '🔴 Simulated Offline' : (syncStatus === 'syncing' ? '🟡 Syncing...' : '🟢 Synced')}
-          {pendingSyncCount > 0 && ` (${pendingSyncCount} queued)`}
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: getStatusDotColor(),
+              display: 'inline-block',
+              boxShadow: `0 0 6px ${getStatusDotColor()}80`
+            }}
+          />
+          <span>{getStatusText()}</span>
+          {pendingSyncCount > 0 && (
+            <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>({pendingSyncCount})</span>
+          )}
         </button>
 
-        {/* Manual Sync Trigger */}
-        {isOnline && pendingSyncCount > 0 && (
-          <button
-            onClick={triggerManualSync}
+        {/* Patient Account Indicator */}
+        <div
+          aria-label={`Logged in account: ${patientName}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: '#f8fafc',
+            padding: '0.4rem 0.85rem',
+            borderRadius: '20px',
+            border: '1px solid #e2e8f0',
+            color: '#0f172a',
+            fontSize: '0.95rem',
+            fontWeight: 700
+          }}
+        >
+          <div
             style={{
-              padding: '0.35rem 0.5rem',
-              borderRadius: '6px',
-              background: '#334155',
-              color: '#ffffff'
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              background: role === 'guardian' ? '#e0e7ff' : '#ccfbf1',
+              color: role === 'guardian' ? '#4f46e5' : '#0f766e',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.85rem'
             }}
           >
-            <RefreshCw size={14} /> Sync
-          </button>
-        )}
-
-        {/* Language Selection */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#1e293b', padding: '0.2rem 0.5rem', borderRadius: '6px' }}>
-          <Globe size={14} style={{ color: '#94a3b8' }} />
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-            style={{
-              background: 'transparent',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="en" style={{ background: '#1e293b' }}>English</option>
-            <option value="as" style={{ background: '#1e293b' }}>অসমীয়া (Assamese)</option>
-            <option value="bn" style={{ background: '#1e293b' }}>বাংলা (Bengali)</option>
-            <option value="mn" style={{ background: '#1e293b' }}>মৈতৈলোন্ (Manipuri)</option>
-            <option value="hi" style={{ background: '#1e293b' }}>हिंदी (Hindi)</option>
-          </select>
+            <User size={15} />
+          </div>
+          <span className="header-patient-name">{patientName}</span>
         </div>
 
-        {/* High Contrast Accessibility Toggle */}
-        <button
-          onClick={toggleHighContrast}
-          title="Toggle High Contrast Mode for Low Vision"
-          style={{
-            padding: '0.35rem 0.5rem',
-            borderRadius: '6px',
-            background: isHighContrast ? '#ffff00' : '#334155',
-            color: isHighContrast ? '#000000' : '#ffffff',
-            fontWeight: 700,
-            fontSize: '0.8rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-        >
-          {isHighContrast ? <Sun size={14} /> : <Moon size={14} />}
-          {isHighContrast ? 'Contrast ON' : 'Contrast OFF'}
-        </button>
-
-        {onOpenAccessibility && (
-          <button
-            onClick={onOpenAccessibility}
-            style={{
-              padding: '0.35rem 0.5rem',
-              borderRadius: '6px',
-              background: '#0d9488',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: '0.8rem'
-            }}
-          >
-            Accessibility
-          </button>
-        )}
+        {/* 3-Line Hamburger Menu Entry Point */}
+        <HamburgerMenu />
       </div>
-    </div>
+    </header>
   );
 };

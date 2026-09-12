@@ -13,7 +13,11 @@ export const Logo: React.FC<LogoProps> = ({ size = 'medium', lightText = false }
   const subtitleSize = isLarge ? '1rem' : (isSmall ? '0.75rem' : '0.85rem');
 
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+    <div
+      role="banner"
+      aria-label="MANAS Neural Memory Companion"
+      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+    >
       {/* Typography Wordmark */}
       <div style={{
         fontSize: titleSize,

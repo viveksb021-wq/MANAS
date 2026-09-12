@@ -1,39 +1,58 @@
 :root {
-  /* Brand Palette: Warm, Trustworthy Teal & Indigo */
+  /* MANAS Brand Palette: Calm, Trustworthy Teal & Slate */
   --primary-50: #f0fdfa;
   --primary-100: #ccfbf1;
+  --primary-200: #99f6e4;
   --primary-500: #14b8a6;
   --primary-600: #0d9488;
   --primary-700: #0f766e;
+  --primary-900: #134e4a;
   
+  /* Accent Color Tokens */
   --accent-amber: #f59e0b;
+  --accent-amber-light: #fef3c7;
   --accent-rose: #f43f5e;
+  --accent-rose-light: #fff1f2;
   --accent-emerald: #10b981;
+  --accent-emerald-light: #d1fae5;
+  --accent-indigo: #4f46e5;
+  --accent-indigo-light: #e0e7ff;
+  --accent-sky: #0284c7;
+  --accent-sky-light: #e0f2fe;
   
-  /* Neutral Palette */
-  --bg-patient: #f8fafc;
-  --card-patient: #ffffff;
+  /* Neutral Surfaces & Elevation */
+  --bg-app: #f8fafc;
+  --bg-card: #ffffff;
   --text-main: #0f172a;
   --text-muted: #475569;
-  --border-light: #e2e8f0;
+  --text-light: #94a3b8;
+  --border-subdued: #cbd5e1;
+  --border-active: #14b8a6;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 10px 25px -5px rgba(15, 118, 110, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 20px 35px -10px rgba(15, 118, 110, 0.15);
 
-  /* Fonts */
-  --font-heading: 'Outfit', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* Typography Scale */
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   
-  /* Touch target standard for Elderly UI */
+  /* Touch Target Standards for Elderly Accessibility */
   --patient-btn-min-height: 72px;
-  --patient-font-scale: 1.15;
+  --patient-border-radius: 24px;
 }
 
-/* High Contrast Accessibility Mode */
+/* High Contrast Mode Override */
 .high-contrast {
-  --bg-patient: #000000;
-  --card-patient: #111111;
-  --text-main: #ffff00; /* High Contrast Yellow on Dark */
+  --bg-app: #000000;
+  --bg-card: #111111;
+  --text-main: #ffff00; /* High Contrast Yellow */
   --text-muted: #ffffff;
-  --border-light: #ffff00;
+  --text-light: #e2e8f0;
+  --border-subdued: #ffff00;
+  --border-active: #ffff00;
   --primary-600: #ffff00;
+  --primary-700: #e6e600;
+  --primary-50: #1a1a00;
 }
 
 * {
@@ -44,19 +63,20 @@
 
 body {
   font-family: var(--font-body);
-  background-color: #f1f5f9;
+  background-color: var(--bg-app);
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
 }
 
-/* Touch Friendly Buttons */
+/* Touch Friendly Interactive Base */
 button {
-  font-family: inherit;
+  font-family: var(--font-body);
   cursor: pointer;
   border: none;
   outline: none;
@@ -67,35 +87,140 @@ button:active {
   transform: scale(0.97);
 }
 
-/* Elderly Patient Large Buttons */
+/* Touch Target Accessibility Standard (44px x 44px min size) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+div[tabindex="0"]:focus-visible {
+  outline: 3px solid var(--primary-600) !important;
+  outline-offset: 3px !important;
+  border-radius: 8px;
+}
+
+/* Reusable Elderly Touch Cards - Soft Glass Design */
 .patient-card-btn {
   min-height: var(--patient-btn-min-height);
-  border-radius: 20px;
+  border-radius: 26px;
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  padding: 1.25rem 1.5rem;
-  background: #ffffff;
-  border: 3px solid #cbd5e1;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-  font-size: 1.4rem;
+  padding: 1.35rem 1.6rem;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02);
+  font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-main);
   text-align: left;
   width: 100%;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease, background 0.2s ease;
 }
 
 .patient-card-btn:hover {
-  border-color: var(--primary-600);
-  background: var(--primary-50);
-  box-shadow: 0 20px 30px -10px rgba(13, 148, 136, 0.2);
-  transform: translateY(-2px);
+  border-color: rgba(13, 148, 136, 0.6);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 40px -8px rgba(15, 23, 42, 0.12), 0 6px 16px rgba(13, 148, 136, 0.08);
+  transform: translateY(-3px);
 }
 
-/* Utility Animations */
+.patient-glass-card {
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 28px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 15px 35px -8px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+/* Layered Atmosphere Background */
+.manas-patient-app-bg {
+  background: linear-gradient(145deg, #f4f7ff 0%, #f0fdfa 45%, #fdfbf7 100%);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.manas-patient-app-bg::before {
+  content: '';
+  position: fixed;
+  top: -100px;
+  right: -80px;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.12) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 75%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.manas-patient-app-bg::after {
+  content: '';
+  position: fixed;
+  bottom: 50px;
+  left: -100px;
+  width: 450px;
+  height: 450px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(147, 51, 234, 0.08) 0%, rgba(254, 243, 199, 0.25) 50%, transparent 75%);
+  filter: blur(65px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.manas-empty-state {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  background: var(--bg-card);
+  border: 2px dashed var(--border-subdued);
+  border-radius: var(--patient-border-radius);
+  color: var(--text-muted);
+}
+
+.manas-error-banner {
+  background: var(--accent-rose-light);
+  border: 2px solid var(--accent-rose);
+  border-radius: 20px;
+  padding: 1.25rem;
+  color: #be123c;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.manas-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.manas-sync-pill.online {
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border: 1px solid var(--primary-200);
+}
+
+.manas-sync-pill.offline {
+  background: var(--accent-rose-light);
+  color: var(--accent-rose);
+  border: 1px solid #fecdd3;
+}
+
+/* Micro-Animations */
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.03); }
+  50% { opacity: 0.88; transform: scale(1.04); }
 }
 
 .animate-pulse-mic {
@@ -103,15 +228,32 @@ button:active {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.35s ease-out forwards;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Scrollbar customization */
+/* Respect Reduced Motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -126,3 +268,216 @@ button:active {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Application Top Header Responsiveness & Accessibility */
+.high-contrast .app-main-header {
+  background-color: #000000 !important;
+  border-bottom: 2px solid #ffff00 !important;
+  color: #ffff00 !important;
+}
+
+@media (max-width: 639px) {
+  .header-patient-name {
+    display: none !important;
+  }
+}
+
+/* ==================================================
+   3D FLOATING MANAS AI BRAIN ASSISTANT ANIMATIONS
+   ================================================== */
+
+/* Gentle Floating Idle Motion */
+@keyframes floatBob {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translateY(-8px) rotate(1.5deg) scale(1.01);
+  }
+  50% {
+    transform: translateY(-14px) rotate(0deg) scale(1.02);
+  }
+  75% {
+    transform: translateY(-6px) rotate(-1.5deg) scale(1.005);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+}
+
+/* Contact Shadow Rescaling Synced with Floating Bob */
+@keyframes shadowBob {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(0.72);
+    opacity: 0.18;
+  }
+}
+
+/* Listening Audio Waveform Glow Pulsing */
+@keyframes pulseHalo {
+  0%, 100% {
+    box-shadow: 0 0 25px 8px rgba(13, 148, 136, 0.4), 0 0 50px 15px rgba(56, 189, 248, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 45px 18px rgba(13, 148, 136, 0.7), 0 0 80px 30px rgba(56, 189, 248, 0.5);
+  }
+}
+
+/* Neural Thought Pulse around Brain */
+@keyframes neuralGlow {
+  0% {
+    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 25px rgba(147, 51, 234, 0.8)) brightness(1.15);
+  }
+  100% {
+    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6)) brightness(1);
+  }
+}
+
+/* Mouth Lip Sync Talking Movement */
+@keyframes mouthTalking {
+  0%, 100% {
+    transform: scaleY(0.4) scaleX(0.85);
+  }
+  30% {
+    transform: scaleY(1.3) scaleX(1.1);
+  }
+  60% {
+    transform: scaleY(0.7) scaleX(0.9);
+  }
+  80% {
+    transform: scaleY(1.2) scaleX(1.05);
+  }
+}
+
+/* Voice Waveform Sound Bars */
+@keyframes waveformBar {
+  0%, 100% {
+    height: 6px;
+  }
+  50% {
+    height: 28px;
+  }
+}
+
+/* Animated Assistant Classes */
+.brain-idle-float {
+  animation: floatBob 4.8s infinite ease-in-out;
+}
+
+.brain-shadow-float {
+  animation: shadowBob 4.8s infinite ease-in-out;
+}
+
+.brain-listening-pulse {
+  animation: floatBob 3s infinite ease-in-out, pulseHalo 2s infinite ease-in-out;
+}
+
+.brain-thinking-glow {
+  animation: floatBob 4s infinite ease-in-out, neuralGlow 2s infinite ease-in-out;
+}
+
+.brain-mouth-talk {
+  animation: mouthTalking 0.35s infinite ease-in-out;
+}
+
+.waveform-bar-1 { animation: waveformBar 0.8s infinite ease-in-out 0.0s; }
+.waveform-bar-2 { animation: waveformBar 0.8s infinite ease-in-out 0.2s; }
+.waveform-bar-3 { animation: waveformBar 0.8s infinite ease-in-out 0.4s; }
+.waveform-bar-4 { animation: waveformBar 0.8s infinite ease-in-out 0.1s; }
+.waveform-bar-5 { animation: waveformBar 0.8s infinite ease-in-out 0.3s; }
+
+/* Orbiting Light Ring Rotation */
+@keyframes spinOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Environment Background Positioning */
+@media (max-width: 1024px) {
+  .patient-env-bg-layer {
+    background-position: 65% center !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .patient-env-bg-layer {
+    background-position: 75% center !important;
+  }
+}
+
+/* High Contrast Mode Environment Overrides */
+.high-contrast-env {
+  background-color: #000000 !important;
+}
+
+.high-contrast-env .patient-env-bg-layer,
+.high-contrast-env .patient-env-wash-layer,
+.high-contrast-env .patient-env-ambient-light {
+  display: none !important;
+}
+
+.high-contrast-env .patient-glass-card,
+.high-contrast-env .patient-card-btn {
+  background: #111111 !important;
+  border: 2px solid #ffff00 !important;
+  color: #ffff00 !important;
+}
+
+/* Responsive Mobile Floating Assistant positioning */
+@media (max-width: 480px) {
+  .manas-floating-brain-container {
+    bottom: 16px !important;
+    right: 16px !important;
+  }
+  .manas-brain-character-img {
+    width: 100px !important;
+    height: 100px !important;
+  }
+  .manas-speech-bubble-panel,
+  .manas-assistant-panel {
+    width: calc(100vw - 32px) !important;
+    right: -6px !important;
+    bottom: 110px !important;
+  }
+}
+
+/* Good Morning Mountain Sunrise Greeting Card Responsive & Accessibility Overrides */
+@media (max-width: 640px) {
+  .good-morning-card {
+    min-height: 200px !important;
+  }
+  .good-morning-card > div:last-child {
+    padding: 1.5rem 1.25rem !important;
+    max-width: 100% !important;
+  }
+  .good-morning-bg-img {
+    background-position: 85% center !important;
+  }
+  .good-morning-overlay {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.82) 65%, rgba(255, 255, 255, 0.35) 100%) !important;
+  }
+}
+
+.high-contrast .good-morning-card {
+  background-color: #111111 !important;
+  border: 2px solid #ffff00 !important;
+}
+
+.high-contrast .good-morning-bg-img,
+.high-contrast .good-morning-overlay {
+  display: none !important;
+}
+
+
+
