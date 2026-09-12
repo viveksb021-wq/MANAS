@@ -20,13 +20,11 @@ import { ManasFloatingAssistant } from './components/ManasFloatingAssistant';
 import { PatientAppShell } from './components/PatientAppShell';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SihDemoBar } from './components/SihDemoBar';
-import { ArrowRight } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
   const { role, login, isAuthenticated, isHighContrast } = useAuth();
   const { switchPatient } = usePatient();
   const { currentLocation, navigate } = useNavigation();
-  const [showOpeningSplash, setShowOpeningSplash] = useState(true);
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
 
@@ -34,82 +32,14 @@ const MainAppContent: React.FC = () => {
 
   // ROUTE PROTECTION GUARD (FAIL-CLOSED)
   useEffect(() => {
-    if (!showOpeningSplash) {
-      if (flow === 'patient_app' && (!isAuthenticated || role !== 'patient')) {
-        console.warn('Unauthorized access attempt to Patient App. Redirecting to Patient Login.');
-        navigate('patient_login', {}, 'patient_login');
-      } else if (flow === 'guardian_app' && (!isAuthenticated || role !== 'guardian')) {
-        console.warn('Unauthorized access attempt to Guardian App. Redirecting to Guardian Login.');
-        navigate('guardian_login', {}, 'guardian_login');
-      }
+    if (flow === 'patient_app' && (!isAuthenticated || role !== 'patient')) {
+      console.warn('Unauthorized access attempt to Patient App. Redirecting to Patient Login.');
+      navigate('patient_login', {}, 'patient_login');
+    } else if (flow === 'guardian_app' && (!isAuthenticated || role !== 'guardian')) {
+      console.warn('Unauthorized access attempt to Guardian App. Redirecting to Guardian Login.');
+      navigate('guardian_login', {}, 'guardian_login');
     }
-  }, [flow, isAuthenticated, role, showOpeningSplash]);
-
-  if (showOpeningSplash) {
-    return (
-      <div
-        onClick={() => setShowOpeningSplash(false)}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: '#000000',
-          zIndex: 9999,
-          overflow: 'hidden',
-          cursor: 'pointer'
-        }}
-      >
-        {/* Full-Screen Animated Video */}
-        <video
-          src="/opening_animation.mp4"
-          autoPlay
-          muted
-          playsInline
-          onEnded={() => setShowOpeningSplash(false)}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block'
-          }}
-        />
-
-        {/* Floating Skip / Continue Control */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowOpeningSplash(false);
-          }}
-          aria-label="Skip to main app"
-          style={{
-            position: 'absolute',
-            bottom: '2rem',
-            right: '2rem',
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            color: '#ffffff',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            padding: '0.75rem 1.4rem',
-            borderRadius: '9999px',
-            fontWeight: 700,
-            fontSize: '1rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
-            transition: 'all 0.2s ease',
-            zIndex: 10
-          }}
-        >
-          Skip <ArrowRight size={18} />
-        </button>
-      </div>
-    );
-  }
+  }, [flow, isAuthenticated, role]);
 
   const metaEnv = (import.meta as any).env || {};
   const showDemoBar = metaEnv.DEV || metaEnv.VITE_ENABLE_DEMO_BAR === 'true';
