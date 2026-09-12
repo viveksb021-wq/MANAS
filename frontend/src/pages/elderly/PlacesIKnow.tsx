@@ -88,7 +88,7 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
             <span style={{ position: 'relative', width: '10px', height: '10px', borderRadius: '50%', background: '#0d9488' }} />
           </div>
           <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0f766e' }}>
-            📍 You are currently at Home in Laitumkhrah (Safe Zone)
+            📍 Real-Time Location Active • Safe Perimeter Monitored
           </span>
         </div>
 
@@ -146,9 +146,9 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Globe size={20} />
-            <span>{isOnline ? '🟢 Connected (Live OpenStreetMap Active)' : '🔴 Offline Maps Active (Saved Local Tiles)'}</span>
+            <span>{isOnline ? '🟢 Connected (Live Google Maps Active)' : '🔴 Offline Maps Mode'}</span>
           </div>
-          <span style={{ fontSize: '0.85rem', opacity: 0.9 }}>OpenStreetMap</span>
+          <span style={{ fontSize: '0.85rem', opacity: 0.9 }}>Google Maps</span>
         </div>
 
         {/* Calculating Route Loader Overlay */}
@@ -168,7 +168,7 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
             />
           </div>
         ) : (
-          /* Interactive OpenStreetMap Viewer Card */
+          /* Interactive Google Maps Viewer Card */
           <div style={{
             background: '#0f172a',
             borderRadius: '28px',
@@ -179,15 +179,16 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
             height: '320px',
             border: '3px solid #cbd5e1'
           }}>
-            {/* OpenStreetMap Iframe Embed */}
+            {/* Google Maps Iframe Embed */}
             <iframe
-              title="OpenStreetMap Places Map"
+              title="Google Maps Places Viewer"
               width="100%"
               height="100%"
               frameBorder="0"
-              scrolling="no"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=91.8700%2C25.5600%2C91.9100%2C25.5900&amp;layer=mapnik&amp;marker=${selectedPlace ? selectedPlace.latitude : 25.5788}%2C${selectedPlace ? selectedPlace.longitude : 91.8933}`}
-              style={{ border: 0, filter: 'contrast(1.05)' }}
+              style={{ border: 0, width: '100%', height: '100%', display: 'block' }}
+              src={`https://maps.google.com/maps?q=${selectedPlace ? `${selectedPlace.latitude},${selectedPlace.longitude}` : '17.71019,83.16602'}&hl=en&z=16&output=embed`}
+              allowFullScreen
+              loading="lazy"
             />
 
             {/* Selected Place Overlay Card */}
