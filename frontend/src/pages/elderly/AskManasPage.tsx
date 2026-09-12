@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Volume2, ArrowRight, MapPin, Sparkles, ShieldCheck, Clock, Heart, Bell } from 'lucide-react';
+import { Mic, Volume2, ArrowRight, MapPin, Sparkles, ShieldCheck, Clock, Heart, Bell, Send } from 'lucide-react';
 import { speakText, stopSpeech, createSpeechRecognizer } from '../../utils/speech';
 import { LOCALIZED_AI_STRINGS, normalizeLanguageCode } from '../../config/languages';
-import { fetchApi } from '../../utils/api';
 import { useOffline } from '../../context/OfflineContext';
 import { ManasLoader } from '../../components/ManasLoader';
 import { PageTransition } from '../../components/PageTransition';
@@ -10,6 +9,7 @@ import { BackButton } from '../../components/BackButton';
 import { useNavigation } from '../../context/NavigationContext';
 import { usePatient } from '../../context/PatientContext';
 import { useAuth } from '../../context/AuthContext';
+import { processAiQuery } from '../../services/aiAssistantService';
 
 interface AskManasPageProps {
   onBack?: () => void;
@@ -17,7 +17,7 @@ interface AskManasPageProps {
 }
 
 export const AskManasPage: React.FC<AskManasPageProps> = ({ onBack, onNavigate }) => {
-  const { patientProfile, familyMembers } = usePatient();
+  const { patientProfile, familyMembers, memories, places, routines } = usePatient();
   const { language } = useAuth();
   const [isListening, setIsListening] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
@@ -25,10 +25,10 @@ export const AskManasPage: React.FC<AskManasPageProps> = ({ onBack, onNavigate }
   const [response, setResponse] = useState<string | null>(null);
   const [actionData, setActionData] = useState<any | null>(null);
   const [proactiveGreeting, setProactiveGreeting] = useState<string>('');
+  const [typedInput, setTypedInput] = useState('');
   const { isOnline } = useOffline();
 
-  const firstName = patientProfile.full_name.split(' ')[0];
-  const sonMember = familyMembers.find(m => m.id === 'son') || familyMembers[1];
+  const firstName = patientProfile?.full_name?.split(' ')[0] || 'Prasad';
   const nephewMember = familyMembers.find(m => m.id === 'brother1-son') || familyMembers[2];
 
   useEffect(() => {
@@ -63,63 +63,33 @@ export const AskManasPage: React.FC<AskManasPageProps> = ({ onBack, onNavigate }
     setIsThinking(true);
     setActionData(null);
 
-    setTimeout(async () => {
-      try {
-        let resData: any;
-        if (isOnline) {
-          resData = await fetchApi('/voice/ask', {
-            method: 'POST',
-            body: { transcript: queryText, language: language }
-          });
-        } else {
-          // Local fallback parsing
-          const q = queryText.toLowerCase();
-          const matchingMember = familyMembers.find(m => {
-            const fullName = m.name.toLowerCase();
-            const fName = m.name.split(' ')[0].toLowerCase();
-            return q.includes(fullName) || (fName.length > 2 && q.includes(fName));
-          });
+    try {
+      const resData = await processAiQuery(queryText, {
+        patientName: firstName,
+        patientAge: patientProfile?.age || 74,
+        language,
+        familyMembers,
+        routines,
+        places,
+        memories
+      });
 
-          if (q.includes('hospital') || q.includes('where is my hospital')) {
-            resData = {
-              spoken_response: "Your hospital is Shillong Medical Centre, located at Laitumkhrah. Caregiver listed Dr. Sarma as your primary physician.",
-              action: "SHOW_PLACE_ROUTE",
-              suggested_screen: "/places",
-              place: { id: 1, name: 'Shillong Medical Centre' }
-            };
-          } else if (matchingMember) {
-            resData = {
-              spoken_response: `${matchingMember.name} is your ${matchingMember.relationship}. ${matchingMember.notes || ''}`,
-              action: "SHOW_PEOPLE",
-              suggested_screen: "/people"
-            };
-          } else if (q.includes('where did i go') || q.includes('trip') || q.includes('visit')) {
-            resData = {
-              spoken_response: `You visited Shillong Peak with ${nephewMember?.name || 'Arun'} and ${sonMember?.name || 'Ravi'} in November 2024. Memory: Family Trip to Shillong Peak.`,
-              action: "SHOW_PLACE_ROUTE",
-              suggested_screen: "/places",
-              place: { id: 4, name: "Ward's Lake & Park" }
-            };
-          } else {
-            resData = {
-              spoken_response: `Here is your verified plan for today, ${firstName}: Morning tea completed, evening medicine at 8:00 PM.`,
-              action: "NAVIGATE_TODAY",
-              suggested_screen: "/today"
-            };
-          }
-        }
+      setResponse(resData.spoken_response);
+      setActionData(resData);
+      speakText(resData.spoken_response, language, () => setIsThinking(false));
 
-        setResponse(resData.spoken_response);
-        setActionData(resData);
-        speakText(resData.spoken_response, language, () => setIsThinking(false));
-      } catch (err) {
-        const msg = "Opening saved locations map.";
-        setResponse(msg);
-        speakText(msg);
-      } finally {
-        setIsThinking(false);
+      if (resData.suggested_screen && onNavigate) {
+        setTimeout(() => {
+          onNavigate(resData.suggested_screen!);
+        }, 2800);
       }
-    }, 1200);
+    } catch (err) {
+      const fallback = `I'm right here with you, ${firstName}. You can ask about your schedule, memories, family, or we can play a game.`;
+      setResponse(fallback);
+      speakText(fallback, language);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const startListening = () => {
@@ -230,6 +200,61 @@ export const AskManasPage: React.FC<AskManasPageProps> = ({ onBack, onNavigate }
                   "{transcript}"
                 </p>
               )}
+
+              {/* Typing Input Form for Accessibility & Fast Commands */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (typedInput.trim()) {
+                    handleProcessQuery(typedInput.trim());
+                    setTypedInput('');
+                  }
+                }}
+                style={{
+                  marginTop: '1.25rem',
+                  display: 'flex',
+                  gap: '0.5rem',
+                  maxWidth: '480px',
+                  margin: '1.25rem auto 0 auto'
+                }}
+              >
+                <input
+                  type="text"
+                  value={typedInput}
+                  onChange={(e) => setTypedInput(e.target.value)}
+                  placeholder="Or type your question or command here..."
+                  style={{
+                    flex: 1,
+                    padding: '0.8rem 1.1rem',
+                    borderRadius: '16px',
+                    border: '2px solid #ccfbf1',
+                    fontSize: '1.05rem',
+                    outline: 'none',
+                    background: '#f8fafc',
+                    color: '#0f172a'
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!typedInput.trim()}
+                  aria-label="Send query"
+                  style={{
+                    background: typedInput.trim() ? '#0f766e' : '#cbd5e1',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '16px',
+                    width: '48px',
+                    height: '48px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: typedInput.trim() ? 'pointer' : 'default',
+                    flexShrink: 0
+                  }}
+                >
+                  <Send size={20} />
+                </button>
+              </form>
             </>
           )}
         </div>

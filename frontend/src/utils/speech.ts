@@ -18,6 +18,18 @@ export interface SpeakOptions {
 let activeSpeechTimer: any = null;
 let isCurrentlySpeaking = false;
 
+// Pre-warm voices for SpeechSynthesis
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    try {
+      window.speechSynthesis.getVoices();
+    } catch (e) {}
+  };
+  try {
+    window.speechSynthesis.getVoices();
+  } catch (e) {}
+}
+
 /**
  * Immediate cancellation of all ongoing speech.
  * Must be invoked whenever the patient switches languages.

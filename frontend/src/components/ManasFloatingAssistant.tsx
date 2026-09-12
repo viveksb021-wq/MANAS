@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ManasBrainCharacter, ManasAssistantState } from './ManasBrainCharacter';
 import { ManasAssistantPanel } from './ManasAssistantPanel';
 import { speakText, stopSpeech, createSpeechRecognizer } from '../utils/speech';
-import { fetchApi } from '../utils/api';
 import { useOffline } from '../context/OfflineContext';
 import { usePatient } from '../context/PatientContext';
 import { useNavigation } from '../context/NavigationContext';
@@ -13,6 +12,7 @@ import {
   normalizeLanguageCode,
   getLanguageDetails
 } from '../config/languages';
+import { processAiQuery } from '../services/aiAssistantService';
 
 export const ManasFloatingAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,22 +21,20 @@ export const ManasFloatingAssistant: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState<string | null>(null);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [actionLabel, setActionLabel] = useState<string | null>(null);
+  const [responseSource, setResponseSource] = useState<'gemini' | 'smart_engine'>('smart_engine');
 
   const { isOnline } = useOffline();
-  const { patientProfile, familyMembers } = usePatient();
+  const { patientProfile, familyMembers, memories, places, routines } = usePatient();
   const { navigate } = useNavigation();
   const { language } = useAuth();
 
   const recognizerRef = useRef<any>(null);
   const finishTimeoutRef = useRef<any>(null);
 
-  const patientFirstName = patientProfile.full_name.split(' ')[0] || 'Vivek';
+  const patientFirstName = patientProfile?.full_name?.split(' ')[0] || 'Vivek';
 
-  // Rule 6: When the patient changes language while MANAS is speaking or listening:
-  // 1. Stop/cancel the current speech immediately.
-  // 2. Clear timeouts and active recognizers.
-  // 3. Reset assistant state to idle.
-  // 4. Update voice availability notice.
+  // When the patient changes language while MANAS is speaking or listening:
   useEffect(() => {
     stopSpeech();
     if (finishTimeoutRef.current) {
@@ -50,84 +48,41 @@ export const ManasFloatingAssistant: React.FC = () => {
     setResponse(null);
     setTranscript('');
     setVoiceNotice(null);
+    setActionLabel(null);
   }, [language]);
 
-  // Process User Query
+  // Process User Query with Dual-Engine AI
   const handleProcessQuery = async (queryText: string) => {
     if (!queryText.trim()) return;
     setTranscript(queryText);
     setState('thinking');
     setVoiceNotice(null);
+    setActionLabel(null);
 
     const normLang = normalizeLanguageCode(language);
     const langDetails = getLanguageDetails(normLang);
 
     try {
-      let resData: any;
-      if (isOnline) {
-        resData = await fetchApi('/voice/ask', {
-          method: 'POST',
-          body: {
-            transcript: queryText,
-            language: normLang
-          }
-        });
-      } else {
-        // Empathetic, warm local conversational processing when offline in selected language
-        const q = queryText.toLowerCase().trim();
-        const cleanQ = q.replace(/[^\w\s]/g, ' ').trim();
-
-        if (
-          cleanQ.includes('what are we gonna do') ||
-          cleanQ.includes('what to do') ||
-          cleanQ.includes('what should we do') ||
-          cleanQ.includes('কি কৰিম') ||
-          cleanQ.includes('কি করব') ||
-          cleanQ.includes('के गर्ने')
-        ) {
-          resData = {
-            spoken_response: LOCALIZED_AI_STRINGS.what_to_do_response[normLang] ||
-              `Hello ${patientFirstName}! We could play a memory game, look through some family memories, or check what you have planned for today. What would you like to do?`,
-            action: 'OFFER_CHOICES',
-            suggested_screen: '/games'
-          };
-        } else if (cleanQ.includes('thank you') || cleanQ.includes('thanks') || cleanQ.includes('ধন্যবাদ') || cleanQ.includes('khublei')) {
-          resData = {
-            spoken_response: LOCALIZED_AI_STRINGS.gratitude_response[normLang] ||
-              `You're very welcome, ${patientFirstName}. I'm always happy to help you anytime.`,
-            action: 'NONE',
-            suggested_screen: null
-          };
-        } else if (cleanQ.includes('arun')) {
-          resData = {
-            spoken_response: "Arun is your Grandson. 14 years old. Loves playing acoustic guitar.",
-            action: 'SHOW_PERSON',
-            suggested_screen: '/people'
-          };
-        } else if (cleanQ.includes('hospital') || cleanQ.includes('হাস্পাতাল') || cleanQ.includes('হাসপাতাল')) {
-          resData = {
-            spoken_response: "Your hospital is Shillong Medical Centre, located at Laitumkhrah, Shillong, Meghalaya 793003.",
-            action: 'SHOW_PLACE_ROUTE',
-            suggested_screen: '/places'
-          };
-        } else {
-          resData = {
-            spoken_response: LOCALIZED_AI_STRINGS.greeting_general[normLang] ||
-              `Hello ${patientFirstName}! It's nice to hear from you. How are you feeling today?`,
-            action: 'NONE',
-            suggested_screen: null
-          };
-        }
-      }
+      const resData = await processAiQuery(queryText, {
+        patientName: patientFirstName,
+        patientAge: patientProfile?.age || 74,
+        language: normLang,
+        familyMembers,
+        routines,
+        places,
+        memories
+      });
 
       const responseText = resData.spoken_response || resData.text_response || '';
       setResponse(responseText);
+      setActionLabel(resData.action_label || null);
+      setResponseSource(resData.source);
 
       if (finishTimeoutRef.current) {
         clearTimeout(finishTimeoutRef.current);
       }
 
-      // Check honest TTS capability for target language
+      // Speak response aloud with Web Speech API
       const ttsCap = checkTTSCapability(normLang);
 
       if (ttsCap.available && ttsCap.voice) {
@@ -142,28 +97,29 @@ export const ManasFloatingAssistant: React.FC = () => {
         });
 
         // Safety fallback timer if onend fails to trigger
-        const speechDurationMs = Math.max(3200, responseText.length * 85);
+        const speechDurationMs = Math.max(3000, responseText.length * 85);
         finishTimeoutRef.current = setTimeout(() => {
           setState('idle');
         }, speechDurationMs);
       } else {
-        // Honest fallback: never fake pronunciation or speak English for regional text
+        // Fallback notification if TTS unavailable for dialect
         setVoiceNotice(ttsCap.message || `Voice for ${langDetails.name} is currently unavailable on this device. MANAS will continue in ${langDetails.name} text.`);
         setState('idle');
       }
 
-      // Handle Navigation redirect if suggested
+      // Execute Action / Screen Navigation if suggested by AI
       if (resData.suggested_screen) {
         const targetScreen = resData.suggested_screen.replace('/', '');
         setTimeout(() => {
           navigate(targetScreen, {}, 'patient_app');
-        }, 3200);
+        }, 2500);
       }
     } catch (err) {
-      const fallbackMsg = LOCALIZED_AI_STRINGS.greeting_general[normLang] ||
-        "I'm here to support you. You can ask me about today's activities, your reminders, your memories, or we can play a game.";
+      console.error('[MANAS AI Error]', err);
+      const fallbackMsg = `I'm right here with you, ${patientFirstName}. You can ask me to open games, check your schedule, find family members, or just talk with me!`;
       setResponse(fallbackMsg);
       setState('idle');
+      speakText(fallbackMsg, normLang);
     }
   };
 
@@ -273,9 +229,12 @@ export const ManasFloatingAssistant: React.FC = () => {
         onStartListening={startListening}
         onStopListening={stopListening}
         onSelectPrompt={(prompt) => handleProcessQuery(prompt)}
+        onSubmitText={(text) => handleProcessQuery(text)}
         isOnline={isOnline}
         language={language}
         voiceNotice={voiceNotice}
+        actionLabel={actionLabel}
+        source={responseSource}
       />
 
       {/* 3D Brain Mascot Floating Interactive Character */}

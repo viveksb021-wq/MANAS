@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, Volume2, X, Send, ArrowRight } from 'lucide-react';
 import { speakText, stopSpeech, createSpeechRecognizer } from '../utils/speech';
-import { fetchApi } from '../utils/api';
 import { useOffline } from '../context/OfflineContext';
 import { useAuth } from '../context/AuthContext';
+import { usePatient } from '../context/PatientContext';
+import { processAiQuery } from '../services/aiAssistantService';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;
@@ -16,8 +17,12 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [typedInput, setTypedInput] = useState('');
   const { isOnline } = useOffline();
   const { language } = useAuth();
+  const { patientProfile, familyMembers, routines, places, memories } = usePatient();
+
+  const patientFirstName = patientProfile?.full_name?.split(' ')[0] || 'Friend';
 
   useEffect(() => {
     stopSpeech();
@@ -33,82 +38,31 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     setIsListening(false);
 
     try {
-      let resData: any;
-      if (isOnline) {
-        resData = await fetchApi('/voice/ask', {
-          method: 'POST',
-          body: { transcript: queryText, language: language }
-        });
-      } else {
-        const q = queryText.toLowerCase().trim();
-        if (q.includes('hello') || q.startsWith('hi')) {
-          resData = {
-            spoken_response: "Hello! It's nice to hear from you. How are you feeling today?",
-            action: "NONE"
-          };
-        } else if (q.includes('what are we gonna do') || q.includes('what can we do') || q.includes('what should we do')) {
-          resData = {
-            spoken_response: "We could play a memory game, look through some family memories, or check what you have planned for today. What would you like to do?",
-            action: "OFFER_CHOICES",
-            suggested_screen: "/games"
-          };
-        } else if (q.includes('bored')) {
-          resData = {
-            spoken_response: "Let's do something enjoyable. We could play a quick memory game or look at some special memories. Which sounds better?",
-            action: "OFFER_CHOICES",
-            suggested_screen: "/games"
-          };
-        } else if (q.includes('today') || q.includes('schedule') || q.includes('reminder')) {
-          resData = {
-            spoken_response: "Here is your plan for today: 07:30 AM Tea & Breathing, 08:00 AM Blood Pressure Medicine, 10:00 AM Cognitive Training Activity.",
-            action: "NAVIGATE_TODAY",
-            suggested_screen: "/today"
-          };
-        } else if (q.includes('arun') || q.includes('who is arun')) {
-          resData = {
-            spoken_response: "Arun is your 14-year-old grandson. He plays guitar and loves visiting Shillong.",
-            action: "SHOW_PERSON",
-            suggested_screen: "/people"
-          };
-        } else if (q.includes('hospital') || q.includes('where is my hospital')) {
-          resData = {
-            spoken_response: "Your hospital is Shillong Medical Centre, located at Laitumkhrah.",
-            action: "SHOW_PLACE_ROUTE",
-            suggested_screen: "/places"
-          };
-        } else if (q.includes('game') || q.includes('play')) {
-          resData = {
-            spoken_response: "Sure! Would you like to try a memory game or an attention game?",
-            action: "NAVIGATE_GAMES",
-            suggested_screen: "/games"
-          };
-        } else if (q.includes('thank you')) {
-          resData = {
-            spoken_response: "You're very welcome. I'm always happy to help.",
-            action: "NONE"
-          };
-        } else {
-          resData = {
-            spoken_response: "I'm not quite sure what you mean. You can ask me about today's activities, your reminders, your memories, your family, or we can play a game.",
-            action: "HELP_GUIDANCE"
-          };
-        }
-      }
+      const resData = await processAiQuery(queryText, {
+        patientName: patientFirstName,
+        patientAge: patientProfile?.age || 74,
+        language,
+        familyMembers,
+        routines,
+        places,
+        memories
+      });
 
-      setResponse(resData.spoken_response);
+      const replyText = resData.spoken_response || resData.text_response || '';
+      setResponse(replyText);
       setIsSpeaking(true);
-      speakText(resData.spoken_response, language, () => {
+      speakText(replyText, language, () => {
         setIsSpeaking(false);
       });
 
       if (resData.suggested_screen && onNavigate) {
         setTimeout(() => {
           onClose();
-          onNavigate(resData.suggested_screen);
-        }, 3200);
+          onNavigate(resData.suggested_screen!);
+        }, 2800);
       }
     } catch (err) {
-      const fallbackMsg = "I'm not quite sure what you mean. You can ask me about today's activities, your reminders, your memories, your family, or we can play a game.";
+      const fallbackMsg = `I'm right here with you, ${patientFirstName}. How can I assist you today?`;
       setResponse(fallbackMsg);
       speakText(fallbackMsg, language, () => setIsSpeaking(false));
     }
@@ -195,6 +149,34 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
             {isListening ? 'Stop Listening' : 'Tap to Speak'}
           </button>
         </div>
+
+        {/* Text Input Option */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (typedInput.trim()) {
+              handleProcessQuery(typedInput.trim());
+              setTypedInput('');
+            }
+          }}
+          className="flex items-center gap-2 w-full mt-3"
+        >
+          <input
+            type="text"
+            value={typedInput}
+            onChange={(e) => setTypedInput(e.target.value)}
+            placeholder="Or type a question or command..."
+            className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none focus:border-teal-500"
+          />
+          <button
+            type="submit"
+            disabled={!typedInput.trim()}
+            className="p-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-2xl transition-all"
+            aria-label="Send query"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </form>
       </div>
     </div>
   );

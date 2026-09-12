@@ -186,18 +186,18 @@ export function checkTTSCapability(langCode: string | null | undefined): {
   const targetLocale = (details.speechLocale || '').toLowerCase();
   const fallbackLocale = (details.fallbackLocale || '').toLowerCase();
 
-  const voices = window.speechSynthesis.getVoices();
+  let voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) {
-    // Voices may not have loaded yet or no voices exist
+    // Retry once if voices haven't populated yet
     return {
       available: false,
       voice: null,
-      message: `Voice for ${details.name} is currently unavailable on this device. MANAS will continue in ${details.name} text.`
+      message: `Voice for ${details.name} is currently loading or unavailable on this device.`
     };
   }
 
   // Find genuine voice matching target locale or prefix (e.g. "as-IN", "as", "bn-IN", "bn", "ne-NP", "ne", "en-IN", "en-US")
-  const matchedVoice = voices.find(v => {
+  let matchedVoice = voices.find(v => {
     const vLang = (v.lang || '').toLowerCase();
     const vName = (v.name || '').toLowerCase();
     
@@ -213,6 +213,11 @@ export function checkTTSCapability(langCode: string | null | undefined): {
 
     return false;
   }) || null;
+
+  // For English, if no exact regional voice matched, accept any English voice or default voice
+  if (!matchedVoice && targetPrefix === 'en') {
+    matchedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0] || null;
+  }
 
   if (matchedVoice) {
     return {
