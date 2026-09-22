@@ -774,7 +774,7 @@ def process_voice_query(
         if subject:
             speech = f"I don't have an appointment time for your {subject}."
         else:
-            speech = "You don't have an appointment scheduled right now."
+            speech = "I don't have that information yet. Your caregiver can add it."
         res_data = {
             "intent": "APPOINTMENT_QUERY",
             "spoken_response": localize_response(speech, lang),
@@ -809,6 +809,7 @@ def process_voice_query(
         search_name = slots.get("person_name", "").strip()
         person = db.query(Person).filter(
             Person.patient_id == patient_id,
+            Person.is_active != False,
             Person.name.ilike(f"%{search_name}%")
         ).first()
 
@@ -827,7 +828,7 @@ def process_voice_query(
                 }
             }
         else:
-            speech = f"I don't have information about {search_name.capitalize()} in your saved contacts yet. You can ask your guardian to add them in 'People I Know'."
+            speech = f"I don't have information about {search_name.capitalize()}. Your caregiver can add it." if search_name else "I don't have that information yet. Your caregiver can add it."
             res_data = {
                 "intent": "PERSON_QUERY_NOT_FOUND",
                 "spoken_response": localize_response(speech, lang),
@@ -872,7 +873,7 @@ def process_voice_query(
                 }
             }
         else:
-            speech = "I don't have that place in your saved locations yet."
+            speech = "I don't have that information yet. Your caregiver can add it."
             res_data = {
                 "intent": "GET_PLACE_LOCATION_NOT_FOUND",
                 "spoken_response": localize_response(speech, lang),
@@ -909,7 +910,7 @@ def process_voice_query(
                 }
             }
         else:
-            speech = f"I don't have a saved visit record with {search_person.capitalize()} yet."
+            speech = "I don't have that information yet. Your caregiver can add it."
             res_data = {
                 "intent": "CONTEXTUAL_LOCATION_NOT_FOUND",
                 "spoken_response": localize_response(speech, lang),

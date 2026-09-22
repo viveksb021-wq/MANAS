@@ -55,6 +55,11 @@ def test_multi_sample_person_enrollment_api():
         assert person.face_profile.sample_embeddings is not None
         assert len(person.face_profile.sample_embeddings) == 3
     finally:
+        if person:
+            if person.face_profile:
+                db.delete(person.face_profile)
+            db.delete(person)
+            db.commit()
         db.close()
 
 def test_face_recognition_recalibrated_thresholds():

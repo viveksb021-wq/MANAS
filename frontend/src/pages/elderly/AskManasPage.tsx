@@ -96,11 +96,18 @@ export const AskManasPage: React.FC<AskManasPageProps> = ({ onBack, onNavigate }
     setIsListening(true);
     setResponse(null);
     setActionData(null);
+    setTranscript('');
 
     const recognizer = createSpeechRecognizer(
-      (text) => handleProcessQuery(text),
+      (text) => {
+        setIsListening(false);
+        handleProcessQuery(text);
+      },
       () => setIsListening(false),
-      language
+      language,
+      undefined,
+      (interim) => setTranscript(interim),
+      () => setIsListening(false)
     );
 
     if (recognizer) {

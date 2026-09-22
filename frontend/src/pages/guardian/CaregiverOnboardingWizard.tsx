@@ -5,6 +5,7 @@ import {
   Pill, Camera, Mic, KeyRound, AlertCircle, Sparkles, Plus, Trash2, ShieldCheck
 } from 'lucide-react';
 import { fetchApi } from '../../utils/api';
+import { ImageUploadPicker } from '../../components/ImageUploadPicker';
 
 interface CaregiverOnboardingWizardProps {
   onBack?: () => void;
@@ -23,13 +24,14 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
 
   // Step 2: Relationships
   const [relationships, setRelationships] = useState<any[]>([
-    { name: 'Ravi', relationship: 'Son', notes: 'Visits weekends', photo_url: '/family/son.jpg' },
-    { name: 'Meera', relationship: 'Daughter', notes: 'Lives in Shillong', photo_url: '/family/daughter.jpg' },
-    { name: 'Arun', relationship: 'Grandson', notes: '14 yrs old, plays guitar', photo_url: '/family/grandson.jpg' }
+    { name: 'Ravi', relationship: 'Son', notes: 'Visits weekends', photo_url: '/images/family/son.jpeg' },
+    { name: 'Meera', relationship: 'Daughter', notes: 'Lives in Shillong', photo_url: '/images/family/daughter.webp' },
+    { name: 'Arun', relationship: 'Grandson', notes: '14 yrs old, plays guitar', photo_url: '/images/family/brother-1-son.jpeg' }
   ]);
   const [relName, setRelName] = useState('');
   const [relRole, setRelRole] = useState('Granddaughter');
   const [relNotes, setRelNotes] = useState('');
+  const [relPhoto, setRelPhoto] = useState('');
 
   // Step 3: Cognitive & Care Profile (Caregiver/Clinical Info)
   const [caregiverNotes, setCaregiverNotes] = useState('Patient exhibits mild short-term memory recall delays. Prefers gentle verbal encouragement and large visual cards.');
@@ -58,13 +60,14 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
 
   // Step 7: Initial Memory Garden Setup
   const [memories, setMemories] = useState<any[]>([
-    { title: 'Family Trip to Shillong Peak', place: 'Shillong Peak', people_involved: 'Arun, Ravi', memory_date: 'June 2025', description: 'Wonderful summer trip surrounded by pine trees.' },
-    { title: 'Grandson Arun\'s 14th Birthday', place: 'Guwahati Home', people_involved: 'Arun, Meera', memory_date: 'August 2025', description: 'Arun playing his new guitar for the family.' }
+    { title: 'Family Trip to Shillong Peak', place: 'Shillong Peak', people_involved: 'Arun, Ravi', memory_date: 'June 2025', description: 'Wonderful summer trip surrounded by pine trees.', photo_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80' },
+    { title: 'Grandson Arun\'s 14th Birthday', place: 'Guwahati Home', people_involved: 'Arun, Meera', memory_date: 'August 2025', description: 'Arun playing his new guitar for the family.', photo_url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80' }
   ]);
   const [memTitle, setMemTitle] = useState('');
   const [memPlace, setMemPlace] = useState('');
   const [memPeople, setMemPeople] = useState('');
   const [memDesc, setMemDesc] = useState('');
+  const [memPhoto, setMemPhoto] = useState('');
 
   // Step 8: Patient Authentication Setup
   const [authPassphrase, setAuthPassphrase] = useState('MANAS CONNECT');
@@ -73,9 +76,10 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
 
   const handleAddRelationship = () => {
     if (!relName) return;
-    setRelationships(prev => [...prev, { name: relName, relationship: relRole, notes: relNotes, photo_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80' }]);
+    setRelationships(prev => [...prev, { name: relName, relationship: relRole, notes: relNotes, photo_url: relPhoto || '/images/family/daughter.webp' }]);
     setRelName('');
     setRelNotes('');
+    setRelPhoto('');
   };
 
   const handleAddRoutine = () => {
@@ -92,11 +96,12 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
 
   const handleAddMemory = () => {
     if (!memTitle) return;
-    setMemories(prev => [...prev, { title: memTitle, place: memPlace || 'Shillong', people_involved: memPeople || 'Family', memory_date: 'Recent', description: memDesc }]);
+    setMemories(prev => [...prev, { title: memTitle, place: memPlace || 'Shillong', people_involved: memPeople || 'Family', memory_date: 'Recent', description: memDesc, photo_url: memPhoto || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80' }]);
     setMemTitle('');
     setMemPlace('');
     setMemPeople('');
     setMemDesc('');
+    setMemPhoto('');
   };
 
   const toggleHobby = (hobby: string) => {
@@ -227,8 +232,12 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
             {relationships.map((rel, idx) => (
               <div key={idx} style={{ background: '#f8fafc', border: '2px solid #e2e8f0', borderRadius: '18px', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ccfbf1', color: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
-                    {rel.name.charAt(0)}
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ccfbf1', color: '#0f766e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem', overflow: 'hidden' }}>
+                    {rel.photo_url ? (
+                      <img src={rel.photo_url} alt={rel.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      rel.name.charAt(0)
+                    )}
                   </div>
                   <div>
                     <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>{rel.name}</h4>
@@ -261,6 +270,15 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
               </select>
             </div>
             <input type="text" placeholder="Notes (e.g. Visits every Sunday morning)" value={relNotes} onChange={e => setRelNotes(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', marginBottom: '0.85rem' }} />
+            <div style={{ marginBottom: '0.85rem' }}>
+              <ImageUploadPicker
+                value={relPhoto}
+                onChange={setRelPhoto}
+                label="Person Photo"
+                helperText="Browse from device, drag & drop, or pick from family album."
+                aspectRatio="square"
+              />
+            </div>
             <button onClick={handleAddRelationship} style={{ background: '#0f766e', color: '#ffffff', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
               + Add Person to Profile
             </button>
@@ -463,6 +481,15 @@ export const CaregiverOnboardingWizard: React.FC<CaregiverOnboardingWizardProps>
             </div>
             <input type="text" value={memPeople} onChange={e => setMemPeople(e.target.value)} placeholder="People Involved (e.g. Arun, Ravi)" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '0.85rem' }} />
             <textarea value={memDesc} onChange={e => setMemDesc(e.target.value)} placeholder="Short memory description..." style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '0.85rem' }} />
+            <div style={{ marginBottom: '0.85rem' }}>
+              <ImageUploadPicker
+                value={memPhoto}
+                onChange={setMemPhoto}
+                label="Memory Photo"
+                helperText="Browse from device, drag & drop, or pick from gallery."
+                aspectRatio="wide"
+              />
+            </div>
             <button onClick={handleAddMemory} style={{ background: '#0f766e', color: '#ffffff', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}>
               + Add Memory to Garden
             </button>

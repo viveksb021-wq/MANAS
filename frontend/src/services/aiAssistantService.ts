@@ -83,17 +83,260 @@ const STORIES = [
 ];
 
 /**
+ * Multilingual transcript normalizer for regional Indian queries
+ */
+function translateMultilingualTranscript(transcript: string, lang: string = 'en'): string {
+  if (!transcript) return '';
+  let t = transcript.toLowerCase().trim();
+  const l = (lang || 'en').toLowerCase();
+
+  if (l === 'hi' || /[\u0900-\u097F]/.test(t)) {
+    t = t.replace(/नमस्ते|प्रणाम|नमस्कार/g, 'hello')
+         .replace(/क्या करें|क्या करेंगे/g, 'what should we do')
+         .replace(/अस्पताल/g, 'hospital').replace(/दवाई|दवा/g, 'medicine').replace(/तस्वीरें|फोटो/g, 'photos').replace(/खेल/g, 'game')
+         .replace(/आज क्या करना है|आज का काम/g, 'what do i have to do today').replace(/यादें/g, 'memories')
+         .replace(/शुक्रिया|धन्यवाद/g, 'thank you');
+  } else if (l === 'bn' || /[\u0980-\u09FF]/.test(t)) {
+    t = t.replace(/নমস্কার|হ্যালো/g, 'hello')
+         .replace(/কে/g, 'who is').replace(/কোথায়|কোথা/g, 'where is').replace(/হাসপাতাল/g, 'hospital')
+         .replace(/ওষুধ/g, 'medicine').replace(/ছবি/g, 'photos').replace(/খেলা|খেল/g, 'game')
+         .replace(/আজকে কি কাজ|কি কাজ আছে|কি কাজ|আজ কি কাজ|আজকে কাজ|কাজ আছে/g, 'what do i have to do today')
+         .replace(/ধন্যবাদ/g, 'thank you')
+         .replace(/আমরা কি করব|কি করব|কি করা যায়/g, 'what are we gonna do');
+  } else if (l === 'as') {
+    t = t.replace(/নমস্কাৰ|হেল্ল'/g, 'hello')
+         .replace(/ক’ত|কত/g, 'where is').replace(/কোন/g, 'who is')
+         .replace(/চিকিৎসালয়|চিকিৎসালয়/g, 'hospital').replace(/দৰৱ/g, 'medicine')
+         .replace(/কি কৰিম|কি কৰিব|আজি কি কৰিম|আজি কি/g, 'what are we gonna do')
+         .replace(/কি কাম|আজিৰ কাম|কি কাম আছে/g, 'what do i have to do today')
+         .replace(/ধন্যবাদ/g, 'thank you').replace(/খেলিম|খেলোঁ/g, 'play game')
+         .replace(/স্মৃতি/g, 'memories');
+  } else if (l === 'kha') {
+    t = t.replace(/khublei/g, 'hello').replace(/shano/g, 'where is').replace(/mano/g, 'who is')
+         .replace(/dawai/g, 'medicine').replace(/khublei shibun/g, 'thank you')
+         .replace(/kaei ngin leh|ia ngin leh/g, 'what are we gonna do')
+         .replace(/ialehkai/g, 'game').replace(/jingkynmaw/g, 'memories');
+  } else if (l === 'lus' || l === 'mzo') {
+    t = t.replace(/chibai/g, 'hello').replace(/khawiah/g, 'where is').replace(/tu nge/g, 'who is')
+         .replace(/damdawi/g, 'medicine').replace(/ka lawm e/g, 'thank you')
+         .replace(/eng nge kan tih dawn|eng nge kan tih ang/g, 'what are we gonna do')
+         .replace(/infiamna/g, 'game').replace(/hriatreng/g, 'memories');
+  } else if (l === 'mni' || l === 'mn') {
+    t = t.replace(/খুরুমজরি/g, 'hello').replace(/কদাইদা/g, 'where is').replace(/কানা/g, 'who is')
+         .replace(/হাসপাতাল/g, 'hospital').replace(/হিদাক/g, 'medicine')
+         .replace(/করিনো তৌগদবা|করি তৌগনি|করি তৌসি/g, 'what are we gonna do')
+         .replace(/শানবা|শান্নসি/g, 'play game').replace(/নীংশিংখ্রব/g, 'memories');
+  } else if (l === 'trp' || l === 'kok') {
+    t = t.replace(/khulumkha/g, 'hello').replace(/boba|baha/g, 'where is').replace(/sabo/g, 'who is')
+         .replace(/samano/g, 'medicine').replace(/hambai/g, 'thank you')
+         .replace(/khel/g, 'game');
+  } else if (l === 'nag') {
+    t = t.replace(/kene ase/g, 'how are you').replace(/ki koribo/g, 'what are we gonna do')
+         .replace(/dawai/g, 'medicine').replace(/dhanyawad/g, 'thank you')
+         .replace(/game/g, 'game').replace(/purana/g, 'memories');
+  }
+
+  return t;
+}
+
+/**
+ * Localizes spoken and text output into the patient's selected language
+ */
+export function localizeSmartEngineResponse(text: string, lang: string = 'en'): string {
+  if (!text) return '';
+  const l = (lang || 'en').toLowerCase().trim();
+  if (l === 'en') return text;
+
+  let res = text;
+
+  if (l === 'hi') {
+    res = res.replace(/Hello!|Hello /g, 'नमस्ते! ')
+             .replace(/Good morning/g, 'शुभ प्रभात').replace(/Good afternoon/g, 'शुभ दोपहर').replace(/Good evening/g, 'शुभ संध्या')
+             .replace(/Let's play a game/g, 'चलिए एक खेल खेलते हैं')
+             .replace(/Brain training games keep your mind active and sharp/g, 'मस्तिष्क प्रशिक्षण खेल आपके दिमाग को सक्रिय और तेज रखते हैं')
+             .replace(/I'm opening the Games hub for you right now/g, 'मैं आपके लिए खेल पृष्ठ खोल रहा हूँ')
+             .replace(/Opening Games\.\.\./g, 'खेल खोले जा रहे हैं...')
+             .replace(/Here is your schedule for today:/g, 'आज की आपकी समय-सारणी यहाँ है:')
+             .replace(/Let's open your daily schedule so you can see every detail/g, 'चलिए आज की समय-सारणी खोलते हैं ताकि आप सब देख सकें')
+             .replace(/Opening your Today's Schedule\.\.\./g, 'आज की दिनचर्या खोली जा रही है...')
+             .replace(/You are all set for today with morning tea and scheduled rest periods\./g, 'आज के लिए सुबह की चाय और विश्राम का समय निर्धारित है।')
+             .replace(/Looking back at wonderful times brings such warmth/g, 'पुरानी यादों को देखना मन को बहुत शांति देता है')
+             .replace(/I am opening your memory album now\./g, 'मैं आपका स्मृति एल्बम खोल रहा हूँ।')
+             .replace(/Opening My Memories\.\.\./g, 'यादों का एल्बम खोला जा रहा है...')
+             .replace(/Your medical clinic is/g, 'आपका क्लिनिक है')
+             .replace(/located at/g, 'यहाँ स्थित है:')
+             .replace(/Let me take you to your Places map\./g, 'मैं आपको सुरक्षित स्थानों के मानचित्र पर ले चलता हूँ।')
+             .replace(/Opening Places I Know\.\.\./g, 'स्थान पृष्ठ खोला जा रहा है...')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'मेरे पास अभी यह जानकारी नहीं है। आपके देखभालकर्ता इसे जोड़ सकते हैं।')
+             .replace(/is your/g, 'आपके')
+             .replace(/Let's look at their photo in People I Know\./g, 'चलिए उनकी तस्वीर देखते हैं।')
+             .replace(/Here are some of your loved ones:/g, 'ये आपके प्रियजन हैं:')
+             .replace(/Opening your family album now\./g, 'परिवार का एल्बम खोला जा रहा है।')
+             .replace(/Opening People I Know\.\.\./g, 'परिचित व्यक्तियों का पृष्ठ खोला जा रहा है...')
+             .replace(/Taking you back to your home screen,/g, 'आपको मुख्य पृष्ठ पर वापस ले जाया जा रहा है,')
+             .replace(/Navigating to Home\.\.\./g, 'मुख्य पृष्ठ पर जा रहे हैं...')
+             .replace(/I am right here beside you/g, 'मैं हमेशा आपके साथ यहीं हूँ')
+             .replace(/You are never alone\. Your loved ones care about you deeply\./g, 'आप कभी अकेले नहीं हैं। आपके प्रियजन आपसे बहुत स्नेह करते हैं।')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'मैं मानस हूँ, सुन रहा हूँ और आपकी सहायता के लिए तैयार हूँ।')
+             .replace(/You are so very welcome/g, 'आपका बहुत-बहुत स्वागत है')
+             .replace(/I'm always right here whenever you need a hand\./g, 'जब भी आपको जरूरत हो, मैं हमेशा आपके साथ हूँ।')
+             .replace(/I am MANAS, your personal AI companion\./g, 'मैं मानस हूँ, आपका व्यक्तिगत साथी।')
+             .replace(/I'm doing wonderful, thank you for asking!/g, 'मैं बहुत अच्छा हूँ, पूछने के लिए धन्यवाद!');
+  } else if (l === 'as') {
+    res = res.replace(/Hello!|Hello /g, 'নমস্কাৰ! ')
+             .replace(/Good morning/g, 'শুভ প্ৰভাত').replace(/Good afternoon/g, 'শুভ অপৰাহ্ণ').replace(/Good evening/g, 'শুভ সন্ধিয়া')
+             .replace(/Let's play a game/g, 'আহক আমি এটা খেল খেলোঁ')
+             .replace(/Brain training games keep your mind active and sharp/g, 'মস্তিষ্কৰ খেলবোৰে আপোনাৰ মনটো সক্ৰিয় আৰু সতেজ কৰি ৰাখে')
+             .replace(/I'm opening the Games hub for you right now/g, 'মই এতিয়াই আপোনাৰ বাবে খেলৰ পৃষ্ঠাটো খুলিছোঁ')
+             .replace(/Opening Games\.\.\./g, 'খেল খোলা হৈছে...')
+             .replace(/Here is your schedule for today:/g, 'আজিৰ বাবে আপোনাৰ কাৰ্যসূচী এইয়া:')
+             .replace(/Let's open your daily schedule so you can see every detail/g, 'আহক আপোনাৰ দিনটোৰ কাৰ্যসূচীখন খোলি চাওঁ')
+             .replace(/Opening your Today's Schedule\.\.\./g, 'আজিৰ কাৰ্যসূচী খোলা হৈছে...')
+             .replace(/You are all set for today with morning tea and scheduled rest periods\./g, 'ৰাতিপুৱাৰ চাহ আৰু জিৰণিৰ সৈতে আজিৰ দিনটোৰ বাবে আপুনি সম্পূৰ্ণ প্ৰস্তুত।')
+             .replace(/Looking back at wonderful times brings such warmth/g, 'পুৰণি স্মৃতিবোৰ সোঁৱৰিলে মনটো বৰ আনন্দিত হৈ পৰে')
+             .replace(/I am opening your memory album now\./g, 'মই আপোনাৰ স্মৃতিৰ এলবামখন খুলি আছোঁ।')
+             .replace(/Opening My Memories\.\.\./g, 'মোৰ স্মৃতি খোলা হৈছে...')
+             .replace(/Your medical clinic is/g, 'আপোনাৰ চিকিৎসালয় হৈছে')
+             .replace(/located at/g, 'অৱস্থিত:')
+             .replace(/Let me take you to your Places map\./g, 'মই আপোনাক স্থানৰ মানচিত্ৰখন দেখুৱাই দিওঁ।')
+             .replace(/Opening Places I Know\.\.\./g, 'স্থান পৃষ্ঠা খোলা হৈছে...')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'মোৰ হাতত এতিয়া এই তথ্য নাই। আপোনাৰ সহায়কজনে ইয়াক যোগ কৰিব পাৰিব।')
+             .replace(/is your/g, 'আপোনাৰ')
+             .replace(/Let's look at their photo in People I Know\./g, 'আহক আমি তেওঁলোকৰ ছবিখন চাওঁ।')
+             .replace(/Here are some of your loved ones:/g, 'এওঁলোক আপোনাৰ আপোনজন:')
+             .replace(/Opening your family album now\./g, 'পৰিয়ালৰ এলবামখন খোলা হৈছে।')
+             .replace(/Opening People I Know\.\.\./g, 'মই জনা মানুহৰ পৃষ্ঠা খোলা হৈছে...')
+             .replace(/Taking you back to your home screen,/g, 'আপোনাক মূল পৃষ্ঠালৈ লৈ যোৱা হৈছে,')
+             .replace(/Navigating to Home\.\.\./g, 'মূল পৃষ্ঠালৈ যোৱা হৈছে...')
+             .replace(/I am right here beside you/g, 'মই সদায় আপোনাৰ কাষতেই আছোঁ')
+             .replace(/You are never alone\. Your loved ones care about you deeply\./g, 'আপুনি কেতিয়াও অকলশৰীয়া নহয়। আপোনাৰ আপোনজনে আপোনাক বহুত মৰম কৰে।')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'মই মানস, শুনি আছোঁ আৰু সহায় কৰিবলৈ সাজু।')
+             .replace(/You are so very welcome/g, 'আপোনাক বহুত ধন্যবাদ')
+             .replace(/I'm always right here whenever you need a hand\./g, 'যেতিয়াই প্ৰয়োজন হয়, মই সদায় আপোনাৰ কাষতেই আছোঁ।')
+             .replace(/I am MANAS, your personal AI companion\./g, 'মই মানস, আপোনাৰ ব্যক্তিগত সহায়কাৰী।')
+             .replace(/I'm doing wonderful, thank you for asking!/g, 'মই বহুত ভাল আছোঁ, সোধাৰ বাবে ধন্যবাদ!');
+  } else if (l === 'bn') {
+    res = res.replace(/Hello!|Hello /g, 'নমস্কার! ')
+             .replace(/Good morning/g, 'সুপ্রভাত').replace(/Good afternoon/g, 'শুভ অপরাহ্ন').replace(/Good evening/g, 'শুভ সন্ধ্যা')
+             .replace(/Let's play a game/g, 'চলুন একটি খেলা খেলি')
+             .replace(/Brain training games keep your mind active and sharp/g, 'ব্রেন গেম আপনার মনকে সক্রিয় ও সতেজ রাখে')
+             .replace(/I'm opening the Games hub for you right now/g, 'আমি আপনার জন্য গেমসের পাতা খুলছি')
+             .replace(/Opening Games\.\.\./g, 'খেলা খোলা হচ্ছে...')
+             .replace(/Here is your schedule for today:/g, 'আজকের জন্য আপনার সময়সূচি:')
+             .replace(/Let's open your daily schedule so you can see every detail/g, 'চলুন আজকের কাজের তালিকা দেখি')
+             .replace(/Opening your Today's Schedule\.\.\./g, 'আজকের তালিকা খোলা হচ্ছে...')
+             .replace(/Looking back at wonderful times brings such warmth/g, 'পুরোনো স্মৃতিগুলো দেখলে মনে প্রশান্তি আসে')
+             .replace(/I am opening your memory album now\./g, 'আমি আপনার স্মৃতির অ্যালবাম খুলছি।')
+             .replace(/Opening My Memories\.\.\./g, 'আমার স্মৃতি খোলা হচ্ছে...')
+             .replace(/Your medical clinic is/g, 'আপনার ক্লিনিক হলো')
+             .replace(/located at/g, 'অবস্থিত:')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'আমার কাছে এখনও এই তথ্যটি নেই। আপনার পরিচর্যাকারী এটি যোগ করতে পারেন।')
+             .replace(/is your/g, 'আপনার')
+             .replace(/Here are some of your loved ones:/g, 'এখানে আপনার প্রিয়জনরা রয়েছেন:')
+             .replace(/Opening People I Know\.\.\./g, 'পরিচিত ব্যক্তিদের পাতা খোলা হচ্ছে...')
+             .replace(/Taking you back to your home screen,/g, 'আপনাকে মূল পর্দায় ফিরিয়ে নিয়ে যাচ্ছি,')
+             .replace(/I am right here beside you/g, 'আমি সবসময় আপনার পাশেই আছি')
+             .replace(/You are so very welcome/g, 'আপনাকে অনেক অনেক ধন্যবাদ')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'আমি মানস, শুনছি এবং সাহায্য করতে প্রস্তুত।');
+  } else if (l === 'ne') {
+    res = res.replace(/Hello!|Hello /g, 'नमस्ते! ')
+             .replace(/Good morning/g, 'शुभ प्रभात').replace(/Good afternoon/g, 'शुभ दिउँसो').replace(/Good evening/g, 'शुभ सन्ध्या')
+             .replace(/Let's play a game/g, 'आउनुहोस् एउटा खेल खेलौँ')
+             .replace(/I'm opening the Games hub for you right now/g, 'म अहिले नै खेलहरूको पृष्ठ खोल्दैछु')
+             .replace(/Opening Games\.\.\./g, 'खेल खुल्दैछ...')
+             .replace(/Here is your schedule for today:/g, 'आजको लागि तपाईंको तालिका:')
+             .replace(/I am opening your memory album now\./g, 'म तपाईंको सम्झनाहरूको एल्बम खोल्दैछु।')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'मसँग अहिले यो जानकारी छैन। तपाईंको हेरचाहकर्ताले यो थप्न सक्नुहुन्छ।')
+             .replace(/is your/g, 'तपाईंको')
+             .replace(/Taking you back to your home screen,/g, 'तपाईंलाई गृहपृष्ठमा लैजाँदै छु,')
+             .replace(/I am right here beside you/g, 'म सधैं तपाईंको साथमा छु')
+             .replace(/You are so very welcome/g, 'तपाईंलाई धेरै स्वागत छ')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'म मानस हुँ, सुन्दै छु र मद्दत गर्न तयार छु।');
+  } else if (l === 'kha') {
+    res = res.replace(/Hello!|Hello /g, 'Khublei! ')
+             .replace(/Good morning/g, 'Khublei mynstep').replace(/Good evening/g, 'Khublei janmiet')
+             .replace(/Let's play a game/g, 'Ia ngin ia ialehkai')
+             .replace(/Opening Games\.\.\./g, 'Plie ia ki jingialehkai...')
+             .replace(/Here is your schedule for today:/g, 'Kine ki long ki kam jong phi mynta:')
+             .replace(/I am opening your memory album now\./g, 'Plie ia ki dur kynmaw jong phi.')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'Ngam pat don ia kane ka jingtip. U nongap jong phi un sa thep.')
+             .replace(/I am right here beside you/g, 'Nga don hangne lang bad phi')
+             .replace(/You are so very welcome/g, 'Khublei shibun')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'Nga dei u MANAS, nga sngap bad kloi ban iarap.');
+  } else if (l === 'lus' || l === 'mzo') {
+    res = res.replace(/Hello!|Hello /g, 'Chibai! ')
+             .replace(/Good morning/g, 'Chibai zing tha le').replace(/Good evening/g, 'Chibai tlaizawng')
+             .replace(/Let's play a game/g, 'Infiamna i khel ang hmiang')
+             .replace(/Opening Games\.\.\./g, 'Infiamna ka hawng e...')
+             .replace(/Here is your schedule for today:/g, 'Vawiina i thil tih turte:')
+             .replace(/I am opening your memory album now\./g, 'I thlalak hriatrengte ka hawng e.')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'He thu hi ka la nei lo. I enkawltu in a la dah ang.')
+             .replace(/I am right here beside you/g, 'I kiangah ka awm reng e')
+             .replace(/You are so very welcome/g, 'Ka lawm lutuk e')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'MANAS ka ni a, puih che ka inpeih reng e.');
+  } else if (l === 'mni' || l === 'mn') {
+    res = res.replace(/Hello!|Hello /g, 'খুরুমজরি! ')
+             .replace(/Good morning/g, 'অয়ুক্কী খুরুমজরি').replace(/Good evening/g, 'নুমিদাংগী খুরুমজরি')
+             .replace(/Let's play a game/g, 'শান্নপোৎ অমা শান্নসি')
+             .replace(/Opening Games\.\.\./g, 'শান্নপোৎ হাংদোক্লি...')
+             .replace(/Here is your schedule for today:/g, 'ঙসিগী নহাক্কী থবকশিংদা লৈরিবসি:')
+             .replace(/I am opening your memory album now\./g, 'নহাক্কী নীংশিংখ্রবশিংগী অ্যালবাম হাংদোক্লি।')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'ঐঙোন্দা থবকসিগী মরমদা খংদ্রে। নহাক্কী মীনা হাপচিনবা য়াগনি।')
+             .replace(/I am right here beside you/g, 'ঐ মতম চুপ্পদা নহাক্কী নাকন্দা লৈগনি')
+             .replace(/You are so very welcome/g, 'নহাকপু থাগৎচরি')
+             .replace(/I'm MANAS, listening and ready to help\./g, 'ঐ মানসনি, নহাকপু মতেং পাংনবা শেম-শাদুনা লৈরি।');
+  } else if (l === 'trp' || l === 'kok') {
+    res = res.replace(/Hello!|Hello /g, 'Khulumkha! ')
+             .replace(/Good morning/g, 'Kahwk sal').replace(/Good evening/g, 'Kaham san')
+             .replace(/Let's play a game/g, 'Khorokche khel khwnglai')
+             .replace(/Opening Games\.\.\./g, 'Khel khwngmani...')
+             .replace(/Here is your schedule for today:/g, 'Tini nini mang song:')
+             .replace(/I am opening your memory album now\./g, 'Nini photo album khulise.')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'Abo kok ang rwgwi manliya.')
+             .replace(/I am right here beside you/g, 'Ang salbrum nini sepad tongnai')
+             .replace(/You are so very welcome/g, 'Baili hamari');
+  } else if (l === 'nag') {
+    res = res.replace(/Hello!|Hello /g, 'Hello! ')
+             .replace(/Good morning/g, 'Khushi laga sokal').replace(/Good evening/g, 'Bhal laga bheli')
+             .replace(/Let's play a game/g, 'Ekta game khelibo ahibi')
+             .replace(/Opening Games\.\.\./g, 'Game khulise...')
+             .replace(/Here is your schedule for today:/g, 'Aji laga schedule:')
+             .replace(/I am opening your memory album now\./g, 'Photo album khulise.')
+             .replace(/I don't have that information yet\. Your caregiver can add it\./g, 'Etu kotha ami nathake. Guardian ke kobidibo.')
+             .replace(/I am right here beside you/g, 'Ami sob homoi apuni logote ase')
+             .replace(/You are so very welcome/g, 'Bhal lagise');
+  }
+
+  return res;
+}
+
+/**
  * Built-in Smart Engine: Handles commands, schedule queries, family info,
  * chitchat, and emotional support without requiring an external backend or API key.
  */
 function processWithSmartEngine(queryText: string, context: AiAssistantQueryContext): AiAssistantResponse {
-  const q = cleanQuery(queryText);
+  const normLang = normalizeLanguageCode(context.language);
+  const normalizedTranscript = translateMultilingualTranscript(queryText, normLang);
+  const q = cleanQuery(normalizedTranscript);
   const rawQ = queryText.trim();
   const pName = context.patientName || 'friend';
   const family = context.familyMembers || [];
   const routines = context.routines || [];
   const places = context.places || [];
   const memories = context.memories || [];
+
+  const finalize = (raw: {
+    spoken_response: string;
+    text_response: string;
+    action?: AiAssistantResponse['action'];
+    suggested_screen?: string | null;
+    source: 'smart_engine';
+    action_label?: string;
+  }): AiAssistantResponse => ({
+    ...raw,
+    spoken_response: localizeSmartEngineResponse(raw.spoken_response, normLang),
+    text_response: localizeSmartEngineResponse(raw.text_response, normLang)
+  });
 
   // 1. COMMAND: PLAY GAMES / BRAIN TRAINING
   if (
@@ -108,14 +351,14 @@ function processWithSmartEngine(queryText: string, context: AiAssistantQueryCont
     q.includes('bored') ||
     q.includes('play and train')
   ) {
-    return {
+    return finalize({
       spoken_response: `Let's play a game, ${pName}! Brain training games keep your mind active and sharp. I'm opening the Games hub for you right now.`,
       text_response: `Let's play a game, ${pName}! Brain training games keep your mind active and sharp. Opening Games...`,
       action: 'NAVIGATE_GAMES',
       suggested_screen: 'games',
       source: 'smart_engine',
       action_label: 'Opening Games 🎮'
-    };
+    });
   }
 
   // 2. COMMAND: TODAY'S SCHEDULE / ROUTINE / MEDICINE
@@ -158,9 +401,7 @@ function processWithSmartEngine(queryText: string, context: AiAssistantQueryCont
     q.includes('picture') ||
     q.includes('trip') ||
     q.includes('vacation') ||
-    q.includes('album') ||
-    q.includes('shillong peak') ||
-    q.includes('bihu')
+    q.includes('album')
   ) {
     let memDetail = '';
     if (memories.length > 0) {
@@ -185,23 +426,75 @@ function processWithSmartEngine(queryText: string, context: AiAssistantQueryCont
     q.includes('where is my hospital') ||
     q.includes('where do i live') ||
     q.includes('home address') ||
+    q.includes('where is my home') ||
     q.includes('places') ||
     q.includes('map') ||
     q.includes('directions') ||
-    q.includes('where am i')
+    q.includes('where am i') ||
+    q.startsWith('where is')
   ) {
-    const hosp = places.find(p => p.name.toLowerCase().includes('hospital') || p.category.toLowerCase().includes('medical')) || {
-      name: 'Shillong Medical Centre',
-      address: 'Laitumkhrah, Shillong'
-    };
-    return {
-      spoken_response: `Your designated medical hospital is ${hosp.name}, located at ${hosp.address}. Let me take you to your Places map.`,
-      text_response: `Your hospital is ${hosp.name}, located at ${hosp.address}. Opening Places I Know...`,
-      action: 'SHOW_PLACES',
-      suggested_screen: 'places',
-      source: 'smart_engine',
-      action_label: 'Opening Places 📍'
-    };
+    if (q.includes('home') || q.includes('live')) {
+      const homePlace = places.find(p => p.category.toLowerCase() === 'home' || p.name.toLowerCase().includes('home'));
+      if (homePlace) {
+        return {
+          spoken_response: `Your home is ${homePlace.name}, located at ${homePlace.address || 'your saved residence'}.`,
+          text_response: `Your home is ${homePlace.name}, located at ${homePlace.address || ''}.`,
+          action: 'SHOW_PLACES',
+          suggested_screen: 'places',
+          source: 'smart_engine',
+          action_label: 'Opening Places 📍'
+        };
+      } else {
+        return {
+          spoken_response: "I don't have that information yet. Your caregiver can add it.",
+          text_response: "I don't have that information yet. Your caregiver can add it.",
+          action: 'SHOW_PLACES',
+          suggested_screen: 'places',
+          source: 'smart_engine'
+        };
+      }
+    }
+
+    const hosp = places.find(p => p.name.toLowerCase().includes('hospital') || p.category.toLowerCase().includes('medical') || p.category.toLowerCase().includes('clinic'));
+    if (hosp) {
+      return {
+        spoken_response: `Your medical clinic is ${hosp.name}, located at ${hosp.address || 'your saved location'}. Let me take you to your Places map.`,
+        text_response: `Your clinic is ${hosp.name}, located at ${hosp.address || ''}. Opening Places I Know...`,
+        action: 'SHOW_PLACES',
+        suggested_screen: 'places',
+        source: 'smart_engine',
+        action_label: 'Opening Places 📍'
+      };
+    }
+
+    if (q.includes('hospital') || q.includes('clinic') || q.includes('doctor') || q.startsWith('where is')) {
+      return {
+        spoken_response: "I don't have that information yet. Your caregiver can add it.",
+        text_response: "I don't have that information yet. Your caregiver can add it.",
+        action: 'SHOW_PLACES',
+        suggested_screen: 'places',
+        source: 'smart_engine'
+      };
+    }
+
+    if (places.length > 0) {
+      return {
+        spoken_response: `You have ${places.length} saved places in your directory. Opening your Places map.`,
+        text_response: `Opening your saved places...`,
+        action: 'SHOW_PLACES',
+        suggested_screen: 'places',
+        source: 'smart_engine',
+        action_label: 'Opening Places 📍'
+      };
+    } else {
+      return {
+        spoken_response: "I don't have that information yet. Your caregiver can add it.",
+        text_response: "I don't have that information yet. Your caregiver can add it.",
+        action: 'SHOW_PLACES',
+        suggested_screen: 'places',
+        source: 'smart_engine'
+      };
+    }
   }
 
   // 5. COMMAND: FAMILY & PEOPLE
@@ -221,6 +514,16 @@ function processWithSmartEngine(queryText: string, context: AiAssistantQueryCont
         action_label: `Viewing ${member.name} 👥`
       };
     }
+  }
+
+  if (q.startsWith('who is') || q.startsWith('who s') || q.includes('who is my')) {
+    return {
+      spoken_response: "I don't have that information yet. Your caregiver can add it.",
+      text_response: "I don't have that information yet. Your caregiver can add it.",
+      action: 'SHOW_PEOPLE',
+      suggested_screen: 'people',
+      source: 'smart_engine'
+    };
   }
 
   if (q.includes('family') || q.includes('people') || q.includes('who is in my family') || q.includes('contacts')) {
@@ -307,8 +610,8 @@ function processWithSmartEngine(queryText: string, context: AiAssistantQueryCont
   // 11. EMOTIONAL & EMPATHETIC SUPPORT
   if (q.includes('lonely') || q.includes('alone') || q.includes('nobody') || q.includes('miss my')) {
     return {
-      spoken_response: `I am right here beside you, ${pName}. You are never alone. Your family loves you so much, and Ravi calls every day. Would you like to view some family photos or play a fun game together?`,
-      text_response: `I am right here beside you, ${pName}. You are never alone. Your family loves you dearly. Would you like to view some family photos or play a fun game together?`,
+      spoken_response: `I am right here beside you, ${pName}. You are never alone. Your loved ones care about you deeply. Would you like to view some family photos or play a fun game together?`,
+      text_response: `I am right here beside you, ${pName}. You are never alone. Your loved ones care about you deeply. Would you like to view some family photos or play a fun game together?`,
       action: 'NONE',
       source: 'smart_engine'
     };
@@ -325,8 +628,8 @@ function processWithSmartEngine(queryText: string, context: AiAssistantQueryCont
 
   if (q.includes('confused') || q.includes('forgot') || q.includes('lost') || q.includes('dont know') || q.includes('scared')) {
     return {
-      spoken_response: `Take it easy, ${pName}. That is completely normal, and there is no rush at all. You are safe at home in Shillong. I am MANAS, your companion. Just ask me anything you need, and I'll find it for you.`,
-      text_response: `Take it easy, ${pName}. You are safe at home. I am MANAS, your personal companion. What would you like to check?`,
+      spoken_response: `Take it easy, ${pName}. That is completely normal, and there is no rush at all. You are safe. I am MANAS, your companion. Just ask me anything you need, and I'll find it for you.`,
+      text_response: `Take it easy, ${pName}. You are safe. I am MANAS, your personal companion. What would you like to check?`,
       action: 'NONE',
       source: 'smart_engine'
     };
@@ -439,6 +742,8 @@ Valid actions:
 - SHOW_ASSESSMENT (screen: "assessment") -> for memory tests, assessments
 - NAVIGATE_HOME (screen: "home") -> for home, main screen
 If no action is needed, omit the [ACTION: ...] tag.
+
+5. ZERO-HALLUCINATION POLICY: You ONLY know the specific family members, routines, and places explicitly listed in the Known Family Members, Today's Scheduled Routines, and Saved Places above. If the user asks about a family member, relative, place, memory, or appointment that is NOT listed, you MUST reply: "I don't have that information yet. Your caregiver can add it." Never hallucinate, guess, or invent any relatives, places, or events.
 `.trim();
 
   // Call Gemini REST API directly from browser
@@ -516,7 +821,8 @@ If no action is needed, omit the [ACTION: ...] tag.
 
 /**
  * Main Query Processing Gateway
- * Tries Google Gemini API first if configured; seamlessly falls back to Smart Engine.
+ * Tries Google Gemini API first if configured; attempts Backend Voice AI (/api/voice/ask);
+ * seamlessly falls back to client-side Smart Engine.
  */
 export async function processAiQuery(
   queryText: string,
@@ -524,15 +830,68 @@ export async function processAiQuery(
 ): Promise<AiAssistantResponse> {
   const geminiKey = getStoredGeminiKey();
 
+  // 1. Live Google Gemini API (if user provided key)
   if (geminiKey) {
     try {
       const geminiRes = await callGeminiApi(queryText, context, geminiKey);
       return geminiRes;
     } catch (err) {
-      console.warn('[MANAS AI] Gemini API call failed, falling back to Smart Engine:', err);
+      console.warn('[MANAS AI] Gemini API call failed, attempting backend/smart engine:', err);
     }
   }
 
-  // Seamless fallback to Smart Engine
-  return processWithSmartEngine(queryText, context);
+  // 2. Backend Conversational AI Endpoint (/api/voice/ask)
+  try {
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('manas_access_token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/voice/ask`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        transcript: queryText,
+        language: context.language || 'en'
+      })
+    });
+
+    if (res.ok) {
+      const bData = await res.json();
+      const answer = bData.assistant_response || bData.spoken_response;
+      if (answer) {
+        let actionLabel = undefined;
+        if (bData.action === 'NAVIGATE_GAMES') actionLabel = 'Opening Games 🎮';
+        else if (bData.action === 'NAVIGATE_TODAY') actionLabel = "Opening Today's Schedule 📅";
+        else if (bData.action === 'SHOW_PEOPLE') actionLabel = 'Opening Family Album 👥';
+        else if (bData.action === 'SHOW_PLACES') actionLabel = 'Opening Places 📍';
+        else if (bData.action === 'NAVIGATE_MEMORIES') actionLabel = 'Opening Memories 📸';
+        else if (bData.action === 'SHOW_ASSESSMENT') actionLabel = 'Opening Assessment 📊';
+        else if (bData.action === 'NAVIGATE_HOME') actionLabel = 'Going Home 🏠';
+
+        const normLang = normalizeLanguageCode(context.language);
+        const localizedAnswer = localizeSmartEngineResponse(answer, normLang);
+
+        return {
+          spoken_response: localizedAnswer,
+          text_response: localizedAnswer,
+          action: bData.action || 'NONE',
+          suggested_screen: bData.suggested_screen || null,
+          source: 'smart_engine',
+          action_label: actionLabel
+        };
+      }
+    }
+  } catch (err) {
+    // Offline or server unavailable - fallback cleanly to client-side smart engine
+  }
+
+  // 3. Client-Side Smart Engine
+  const normLang = normalizeLanguageCode(context.language);
+  const res = processWithSmartEngine(queryText, context);
+  return {
+    ...res,
+    spoken_response: localizeSmartEngineResponse(res.spoken_response, normLang),
+    text_response: localizeSmartEngineResponse(res.text_response, normLang)
+  };
 }

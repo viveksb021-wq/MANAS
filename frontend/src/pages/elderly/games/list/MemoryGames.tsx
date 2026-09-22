@@ -21,10 +21,23 @@ const FamilyMemoryMatchContent: React.FC<FamilyMemoryMatchContentProps> = ({
   recordAttempt,
   finishGame
 }) => {
-  const { familyMembers } = usePatient();
-  const rawMembers: FamilyMember[] = (familyMembers && familyMembers.length >= 2) ? familyMembers : DEFAULT_FAMILY_MEMBERS_P1;
+  const { activeFamilyMembers } = usePatient();
   // Patient is the player — exclude patient from memory matching game
-  const members: FamilyMember[] = rawMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+  const members: FamilyMember[] = activeFamilyMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+
+  if (members.length < 2) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <Sparkles size={48} color="#6366f1" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          More Family Needed
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver needs to add at least 2 family members in People I Know to generate your personalized memory match cards.
+        </p>
+      </div>
+    );
+  }
 
   // Pairs scaled by Level: Level 1 -> 2 pairs, Level 2 -> 3 pairs, Level 3 -> 4 pairs, Level 4 -> 5 pairs
   const pairsCount = Math.min(Math.max(2, level + 1), Math.min(6, members.length));
@@ -192,17 +205,28 @@ interface WhoIsThisContentProps {
 }
 
 const WhoIsThisContent: React.FC<WhoIsThisContentProps> = ({ level, recordAttempt, finishGame }) => {
-  const { familyMembers } = usePatient();
-  const rawMembers: FamilyMember[] = (familyMembers && familyMembers.length >= 2) ? familyMembers : DEFAULT_FAMILY_MEMBERS_P1;
+  const { activeFamilyMembers } = usePatient();
   // Patient is the player — exclude patient from Who is this?
-  const members: FamilyMember[] = rawMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+  const members: FamilyMember[] = activeFamilyMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+
+  if (members.length < 2) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <Eye size={48} color="#6366f1" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          More Family Needed
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver needs to add at least 2 family members in People I Know to play Who Is This.
+        </p>
+      </div>
+    );
+  }
 
   const [target] = useState<FamilyMember>(() => members[Math.floor(Math.random() * members.length)]);
   const [options] = useState<{ label: string; isCorrect: boolean }[]>(() => {
     const distractors = members.filter(m => m.id !== target.id);
-    const distractor = distractors.length > 0
-      ? distractors[Math.floor(Math.random() * distractors.length)]
-      : { name: 'Suren', relationship: 'Neighbor' };
+    const distractor = distractors[Math.floor(Math.random() * distractors.length)];
 
     return [
       { label: `${target.name} (${target.relationship})`, isCorrect: true },
@@ -335,17 +359,30 @@ interface PhotoRecallContentProps {
 }
 
 const PhotoRecallContent: React.FC<PhotoRecallContentProps> = ({ level, recordAttempt, finishGame }) => {
-  const { familyMembers } = usePatient();
-  const rawMembers: FamilyMember[] = (familyMembers && familyMembers.length >= 2) ? familyMembers : DEFAULT_FAMILY_MEMBERS_P1;
+  const { activeFamilyMembers } = usePatient();
   // Patient is the player — exclude patient from photo recall game
-  const members: FamilyMember[] = rawMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+  const members: FamilyMember[] = activeFamilyMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+
+  if (members.length < 2) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <Heart size={48} color="#6366f1" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          More Family Needed
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver needs to add at least 2 family members in People I Know to play Photo Recall.
+        </p>
+      </div>
+    );
+  }
 
   const [target] = useState<FamilyMember>(() => members[Math.floor(Math.random() * members.length)]);
   const [phase, setPhase] = useState<'showing' | 'question'>('showing');
   const [secondsLeft, setSecondsLeft] = useState(5);
   const [choices] = useState<{ label: string; isCorrect: boolean }[]>(() => {
     const distractors = members.filter(m => m.id !== target.id);
-    const distractorRel = distractors.length > 0 ? distractors[0].relationship : 'Neighbor';
+    const distractorRel = distractors[0].relationship;
     return [
       { label: target.relationship, isCorrect: true },
       { label: distractorRel, isCorrect: false }

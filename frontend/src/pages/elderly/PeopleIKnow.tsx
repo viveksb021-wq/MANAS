@@ -1,32 +1,48 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Volume2, Heart, Plus, X, CheckCircle, UserPlus, Sparkles, Users } from 'lucide-react';
+import { Camera, Volume2, Heart, Plus, X, CheckCircle, UserPlus, Sparkles, Users, Network, LayoutGrid } from 'lucide-react';
 import { speakText } from '../../utils/speech';
 import { FaceCamera } from './FaceCamera';
 import { BackButton } from '../../components/BackButton';
 import { usePatient } from '../../context/PatientContext';
+import { useAuth } from '../../context/AuthContext';
+import { getTranslations } from '../../config/translations';
 import { FamilyImage } from '../../components/FamilyImage';
+import { FamilyTree } from '../../components/FamilyTree';
 import { fetchApi } from '../../utils/api';
 import { extractFaceEmbedding } from '../../utils/faceEmbedding';
 import { EmptyState } from '../../components/EmptyState';
+import { ImageUploadPicker } from '../../components/ImageUploadPicker';
 
 interface PeopleIKnowProps {
   onBack?: () => void;
 }
 
 export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
-  const { familyMembers, addPerson } = usePatient();
+  const { familyMembers, activeFamilyMembers, addPerson } = usePatient();
+  const { language } = useAuth();
+  const t = getTranslations(language);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'tree'>('cards');
 
   // Form & multi-sample capture state
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('Family');
   const [notes, setNotes] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [capturedSamples, setCapturedSamples] = useState<number[][]>([]);
   const [currentStep, setCurrentStep] = useState<'info' | 'capture' | 'done'>('info');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const videoEnrollRef = useRef<HTMLVideoElement | null>(null);
+
+  const stopCameraStream = () => {
+    if (videoEnrollRef.current && videoEnrollRef.current.srcObject) {
+      const stream = videoEnrollRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoEnrollRef.current.srcObject = null;
+    }
+  };
 
   const handleSpeakPerson = (person: any) => {
     speakText(`This is ${person.name}. Your ${person.relationship}. ${person.notes || ''}`);
@@ -65,10 +81,11 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
     }
   };
 
-  const handleCompleteEnrollment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCompleteEnrollment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsSubmitting(true);
 
+    const finalPhoto = photoUrl || '/images/family/son.jpeg';
     const primaryEmbedding = capturedSamples.length > 0
       ? capturedSamples[0]
       : Array.from({ length: 64 }, (_, i) => Number((Math.sin(i * 0.15) * 0.12).toFixed(4)));
@@ -80,7 +97,7 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
           name,
           relationship,
           notes,
-          photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+          photo_url: finalPhoto,
           embedding_data: primaryEmbedding,
           sample_embeddings: capturedSamples.length > 0 ? capturedSamples : [primaryEmbedding]
         }
@@ -90,9 +107,10 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
         name,
         relationship,
         notes,
-        photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
+        photo_url: finalPhoto
       });
 
+      stopCameraStream();
       setIsSubmitting(false);
       setCurrentStep('done');
       speakText(`Successfully enrolled ${name} with ${capturedSamples.length || 1} face samples.`);
@@ -102,6 +120,7 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
         setCurrentStep('info');
         setName('');
         setNotes('');
+        setPhotoUrl('');
         setCapturedSamples([]);
       }, 1200);
 
@@ -111,10 +130,16 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
         name,
         relationship,
         notes,
-        photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
+        photo_url: finalPhoto
       });
+      stopCameraStream();
       setIsSubmitting(false);
       setIsEnrollModalOpen(false);
+      setCurrentStep('info');
+      setName('');
+      setNotes('');
+      setPhotoUrl('');
+      setCapturedSamples([]);
     }
   };
 
@@ -126,9 +151,9 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
     <div style={{ maxWidth: '680px', margin: '0 auto', padding: '1rem' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <BackButton label="Home" onClick={onBack} variant="patient" />
+        <BackButton label={t.nav.home} onClick={onBack} variant="patient" />
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a' }}>
-          PEOPLE I KNOW
+          {t.people_page.title}
         </h1>
       </div>
 
@@ -173,12 +198,61 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
             boxShadow: '0 8px 15px rgba(99, 102, 241, 0.1)'
           }}
         >
-          <UserPlus size={24} /> Enroll Person
+          <UserPlus size={24} /> {t.people_page.enroll_person}
         </button>
       </div>
 
-      {/* Grid of Enrolled Family Members */}
-      {familyMembers.length === 0 ? (
+      {/* View Switcher: Cards vs Family Tree */}
+      <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.35rem', borderRadius: '18px', marginBottom: '1.5rem', gap: '0.5rem' }}>
+        <button
+          onClick={() => setViewMode('cards')}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem',
+            borderRadius: '14px',
+            border: 'none',
+            fontWeight: 700,
+            fontSize: '1rem',
+            cursor: 'pointer',
+            background: viewMode === 'cards' ? '#ffffff' : 'transparent',
+            color: viewMode === 'cards' ? '#4f46e5' : '#64748b',
+            boxShadow: viewMode === 'cards' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <LayoutGrid size={18} /> {t.people_page.cards_view}
+        </button>
+        <button
+          onClick={() => setViewMode('tree')}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem',
+            borderRadius: '14px',
+            border: 'none',
+            fontWeight: 700,
+            fontSize: '1rem',
+            cursor: 'pointer',
+            background: viewMode === 'tree' ? '#ffffff' : 'transparent',
+            color: viewMode === 'tree' ? '#4f46e5' : '#64748b',
+            boxShadow: viewMode === 'tree' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <Network size={18} /> {t.people_page.family_tree}
+        </button>
+      </div>
+
+      {viewMode === 'tree' ? (
+        <FamilyTree />
+      ) : activeFamilyMembers.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No Enrolled Contacts Yet"
@@ -189,7 +263,7 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {familyMembers.map((person) => (
+          {activeFamilyMembers.map((person) => (
             <div
               key={person.id}
               onClick={() => handleSpeakPerson(person)}
@@ -347,22 +421,55 @@ export const PeopleIKnow: React.FC<PeopleIKnowProps> = ({ onBack }) => {
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  style={{
-                    background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '1rem',
-                    borderRadius: '16px',
-                    fontWeight: 800,
-                    fontSize: '1.1rem',
-                    cursor: 'pointer',
-                    marginTop: '0.5rem'
-                  }}
-                >
-                  Proceed to Multi-Pose Face Capture →
-                </button>
+                <div>
+                  <ImageUploadPicker
+                    value={photoUrl}
+                    onChange={setPhotoUrl}
+                    label="Person Photo"
+                    helperText="Upload a photo from your device, or pick from album."
+                    aspectRatio="square"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteEnrollment()}
+                    disabled={!name.trim() || isSubmitting}
+                    style={{
+                      flex: 1,
+                      background: '#0f766e',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '14px',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      cursor: name.trim() ? 'pointer' : 'not-allowed',
+                      opacity: name.trim() ? 1 : 0.6
+                    }}
+                  >
+                    Save with Photo Directly
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!name.trim()}
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '14px',
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      cursor: name.trim() ? 'pointer' : 'not-allowed',
+                      opacity: name.trim() ? 1 : 0.6
+                    }}
+                  >
+                    Face Camera Multi-Pose →
+                  </button>
+                </div>
               </form>
             )}
 

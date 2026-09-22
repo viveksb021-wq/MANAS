@@ -1,14 +1,22 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { ArrowLeft, Camera, RefreshCw, CheckCircle, AlertTriangle, HelpCircle, Volume2, ShieldCheck, Sun } from 'lucide-react';
+import { Camera, RefreshCw, CheckCircle, AlertTriangle, HelpCircle, Volume2, ShieldCheck, Sun } from 'lucide-react';
 import { fetchApi } from '../../utils/api';
 import { speakText, stopSpeech } from '../../utils/speech';
 import { extractFaceEmbedding, evaluateFaceQuality, checkMicroVariation, FaceQualityResult } from '../../utils/faceEmbedding';
+import { usePatient } from '../../context/PatientContext';
+import { useAuth } from '../../context/AuthContext';
+import { getTranslations } from '../../config/translations';
+import { BackButton } from '../../components/BackButton';
 
 interface FaceCameraProps {
   onBack: () => void;
 }
 
 export const FaceCamera: React.FC<FaceCameraProps> = ({ onBack }) => {
+  const { currentPatientId, familyMembers } = usePatient();
+  const { language } = useAuth();
+  const t = getTranslations(language);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
@@ -59,7 +67,7 @@ export const FaceCamera: React.FC<FaceCameraProps> = ({ onBack }) => {
   const handleScanFace = async (simulatedPerson?: 'arun' | 'unknown') => {
     setIsCapturing(true);
     setMatchResult(null);
-    speakText("Scanning face...");
+    speakText("Scanning face...", language);
 
     let queryEmbedding: number[];
     let sampleVectors: number[][] = [];
@@ -94,7 +102,7 @@ export const FaceCamera: React.FC<FaceCameraProps> = ({ onBack }) => {
     }
 
     try {
-      const result = await fetchApi<any>('/people/recognize-face', {
+      const result = await fetchApi<any>(`/people/recognize-face?requested_patient_id=${currentPatientId}`, {
         method: 'POST',
         body: {
           embedding: queryEmbedding,
@@ -106,27 +114,30 @@ export const FaceCamera: React.FC<FaceCameraProps> = ({ onBack }) => {
       setMatchResult(result);
 
       if (result.recognized) {
-        speakText(`${result.message} ${result.sub_text}`);
+        speakText(`${result.message} ${result.sub_text}`, language);
       } else {
-        speakText(result.message);
+        speakText(result.message, language);
       }
     } catch (e) {
       setIsCapturing(false);
-      // Fallback simulation
+      // Fallback simulation using active patient's family members
+      const targetMember = familyMembers.find(m => m.relationship.toLowerCase().includes('grandson') || m.name.toLowerCase().includes('arun')) ||
+                           familyMembers.find(m => m.relationship.toLowerCase() !== 'patient') ||
+                           familyMembers[0];
       const fallbackResult = {
         recognized: true,
         confidence: 0.89,
-        message: "This is Arun.",
-        sub_text: "Your grandson.",
+        message: `This is ${targetMember?.name || 'Arun'}.`,
+        sub_text: `Your ${targetMember?.relationship || 'Grandson'}.`,
         person: {
-          name: "Arun",
-          relationship: "Grandson",
-          notes: "14 years old. Loves playing acoustic guitar.",
-          photo_url: "/family/grandson.jpg"
+          name: targetMember?.name || "Arun",
+          relationship: targetMember?.relationship || "Grandson",
+          notes: targetMember?.notes || "14 years old. Loves playing acoustic guitar.",
+          photo_url: targetMember?.imagePath || targetMember?.photo_url || "/images/family/brother-1-son.jpeg"
         }
       };
       setMatchResult(fallbackResult);
-      speakText("This is Arun. Your grandson.");
+      speakText(`${fallbackResult.message} ${fallbackResult.sub_text}`, language);
     }
   };
 
@@ -134,9 +145,7 @@ export const FaceCamera: React.FC<FaceCameraProps> = ({ onBack }) => {
     <div style={{ maxWidth: '640px', margin: '0 auto', padding: '1rem' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-        <button onClick={onBack} style={{ background: '#ffffff', border: '2px solid #cbd5e1', padding: '0.75rem 1.25rem', borderRadius: '18px', fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <ArrowLeft size={22} /> Back
-        </button>
+        <BackButton label={t.nav.home} onClick={onBack} variant="patient" />
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>
           Real Face Recognition
         </h1>
@@ -332,7 +341,7 @@ export const FaceCamera: React.FC<FaceCameraProps> = ({ onBack }) => {
               )}
             </div>
             <button
-              onClick={() => speakText(`${matchResult.message} ${matchResult.sub_text}`)}
+              onClick={() => speakText(`${matchResult.message} ${matchResult.sub_text}`, language)}
               style={{ background: '#ffffff', border: '2px solid #cbd5e1', borderRadius: '50%', padding: '0.75rem', cursor: 'pointer' }}
             >
               <Volume2 size={24} color="#0d9488" />

@@ -15,10 +15,23 @@ interface PersonRecognitionContentProps {
 }
 
 const PersonRecognitionContent: React.FC<PersonRecognitionContentProps> = ({ level, recordAttempt, finishGame }) => {
-  const { familyMembers } = usePatient();
-  const rawMembers: FamilyMember[] = (familyMembers && familyMembers.length >= 2) ? familyMembers : DEFAULT_FAMILY_MEMBERS_P1;
+  const { activeFamilyMembers } = usePatient();
   // Patient is the player — exclude patient from games
-  const members: FamilyMember[] = rawMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+  const members: FamilyMember[] = activeFamilyMembers.filter((m: FamilyMember) => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
+
+  if (members.length < 2) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <Users size={48} color="#6366f1" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          More Family Needed
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver needs to add at least 2 family members in People I Know to play this personalized recognition game.
+        </p>
+      </div>
+    );
+  }
 
   const [currentTarget] = useState<FamilyMember>(() => {
     return members[Math.floor(Math.random() * members.length)];
@@ -26,9 +39,7 @@ const PersonRecognitionContent: React.FC<PersonRecognitionContentProps> = ({ lev
 
   const [options] = useState<{ label: string; isCorrect: boolean }[]>(() => {
     const distractors = members.filter(m => m.id !== currentTarget.id);
-    const randomDistractor = distractors.length > 0
-      ? distractors[Math.floor(Math.random() * distractors.length)]
-      : { name: 'Suren', relationship: 'Neighbor' };
+    const randomDistractor = distractors[Math.floor(Math.random() * distractors.length)];
 
     return [
       { label: `${currentTarget.name} (${currentTarget.relationship})`, isCorrect: true },

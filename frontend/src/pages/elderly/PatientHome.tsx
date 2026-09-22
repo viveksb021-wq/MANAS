@@ -5,18 +5,41 @@ import { useAuth } from '../../context/AuthContext';
 import { usePatient } from '../../context/PatientContext';
 import { PageTransition } from '../../components/PageTransition';
 import { useNavigation } from '../../context/NavigationContext';
+import { getTranslations } from '../../config/translations';
 
 interface PatientHomeProps {
   onNavigate: (screen: string) => void;
 }
 
 export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
-  const { user, isHighContrast, isReduceMotion } = useAuth();
-  const { patientProfile } = usePatient();
+  const { user, isHighContrast, isReduceMotion, language } = useAuth();
+  const { patientProfile, reminders, routines, completeReminder, toggleRoutine } = usePatient();
   const { navigate } = useNavigation();
-  const [isNextStepDone, setIsNextStepDone] = useState(false);
   const [isSosTriggered, setIsSosTriggered] = useState(false);
   const [sosStatusMessage, setSosStatusMessage] = useState<{ title: string; subtitle: string; isError?: boolean } | null>(null);
+
+  const t = getTranslations(language);
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? t.home.good_morning : hour < 17 ? t.home.good_afternoon : t.home.good_evening;
+
+  const nextReminder = reminders.find(r => r.status === 'Pending') || (reminders.length > 0 ? reminders[0] : null);
+  const nextRoutine = routines.find(r => !r.completed) || (routines.length > 0 ? routines[0] : null);
+
+  const activeNextItem = nextReminder ? {
+    type: 'reminder' as const,
+    id: nextReminder.id,
+    title: nextReminder.title,
+    time: nextReminder.scheduled_time,
+    isDone: nextReminder.status === 'Completed',
+    icon: (nextReminder.category || '').toLowerCase().includes('water') ? '💧' : (nextReminder.category || '').toLowerCase().includes('walk') ? '🚶' : '💊'
+  } : nextRoutine ? {
+    type: 'routine' as const,
+    id: nextRoutine.id,
+    title: nextRoutine.title,
+    time: nextRoutine.time || nextRoutine.time_of_day,
+    isDone: nextRoutine.completed,
+    icon: nextRoutine.icon_symbol || '☀️'
+  } : null;
 
   const patientName = patientProfile.full_name.split(' ')[0] || 'Vivek';
 
@@ -147,7 +170,7 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 }}
               >
                 <Sun size={18} color="#f59e0b" />
-                <span>Morning Greeting</span>
+                <span>{timeGreeting}</span>
               </div>
 
               <h1
@@ -160,7 +183,7 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                   lineHeight: 1.2
                 }}
               >
-                Good Morning, {patientName} 👋
+                {timeGreeting}, {patientName} 👋
               </h1>
 
               <p
@@ -172,7 +195,7 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                   marginBottom: '0.35rem'
                 }}
               >
-                A new day, a new memory.
+                {t.home.new_day}
               </p>
               <p
                 style={{
@@ -184,7 +207,7 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                   gap: '0.4rem'
                 }}
               >
-                <span>🍃</span> Take small steps. You're doing great!
+                <span>🍃</span> {t.home.take_small_steps}
               </p>
             </div>
           </div>
@@ -211,57 +234,88 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
           )}
 
           {/* TODAY'S NEXT STEP Prominent Card */}
-          <div
-            className="patient-glass-card"
-            style={{
-              padding: '1.5rem 1.75rem',
-              marginBottom: '2rem',
-              background: isNextStepDone ? 'rgba(240, 253, 250, 0.88)' : 'rgba(255, 255, 255, 0.84)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              borderRadius: '28px',
-              border: '1.5px solid rgba(255, 255, 255, 0.85)',
-              boxShadow: '0 15px 35px -8px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02)'
-            }}
-          >
-            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-              TODAY'S NEXT STEP
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                <div style={{ background: '#ffe4e6', color: '#e11d48', width: '64px', height: '64px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
-                  💊
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a' }}>Medicine</h3>
-                  <p style={{ fontSize: '1.1rem', color: '#475569', fontWeight: 600 }}>
-                    {isNextStepDone ? 'Completed at 8:00 PM' : 'Your next reminder is at 8:00 PM'}
-                  </p>
-                </div>
+          {activeNextItem ? (
+            <div
+              className="patient-glass-card"
+              style={{
+                padding: '1.5rem 1.75rem',
+                marginBottom: '2rem',
+                background: activeNextItem.isDone ? 'rgba(240, 253, 250, 0.88)' : 'rgba(255, 255, 255, 0.84)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                borderRadius: '28px',
+                border: '1.5px solid rgba(255, 255, 255, 0.85)',
+                boxShadow: '0 15px 35px -8px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02)'
+              }}
+            >
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                {t.home.todays_next_step}
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                  <div style={{ background: '#ffe4e6', color: '#e11d48', width: '64px', height: '64px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
+                    {activeNextItem.icon}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a' }}>{activeNextItem.title}</h3>
+                    <p style={{ fontSize: '1.1rem', color: '#475569', fontWeight: 600 }}>
+                      {activeNextItem.isDone ? `${t.home.done}: ${activeNextItem.time}` : activeNextItem.time}
+                    </p>
+                  </div>
+                </div>
 
-              <button
-                onClick={() => setIsNextStepDone(!isNextStepDone)}
-                style={{
-                  background: isNextStepDone ? '#ccfbf1' : 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                  color: isNextStepDone ? '#0f766e' : '#ffffff',
-                  border: 'none',
-                  borderRadius: '18px',
-                  padding: '0.85rem 1.5rem',
-                  fontWeight: 800,
-                  fontSize: '1.1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  cursor: 'pointer',
-                  boxShadow: isNextStepDone ? 'none' : '0 8px 20px rgba(13, 148, 136, 0.3)'
-                }}
-              >
-                {isNextStepDone ? <CheckCircle size={22} /> : null}
-                {isNextStepDone ? 'Done' : 'Mark Done'}
-              </button>
+                <button
+                  onClick={() => {
+                    if (activeNextItem.type === 'reminder') {
+                      completeReminder(activeNextItem.id);
+                    } else {
+                      toggleRoutine(activeNextItem.id);
+                    }
+                  }}
+                  style={{
+                    background: activeNextItem.isDone ? '#ccfbf1' : 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                    color: activeNextItem.isDone ? '#0f766e' : '#ffffff',
+                    border: 'none',
+                    borderRadius: '18px',
+                    padding: '0.85rem 1.5rem',
+                    fontWeight: 800,
+                    fontSize: '1.1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    boxShadow: activeNextItem.isDone ? 'none' : '0 8px 20px rgba(13, 148, 136, 0.3)'
+                  }}
+                >
+                  {activeNextItem.isDone ? <CheckCircle size={22} /> : null}
+                  {activeNextItem.isDone ? t.home.done : t.home.mark_done}
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              className="patient-glass-card"
+              style={{
+                padding: '1.5rem 1.75rem',
+                marginBottom: '2rem',
+                background: 'rgba(240, 253, 250, 0.88)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                borderRadius: '28px',
+                border: '1.5px solid rgba(255, 255, 255, 0.85)',
+                boxShadow: '0 15px 35px -8px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem'
+              }}
+            >
+              <div style={{ fontSize: '2rem' }}>✨</div>
+              <div>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.home.all_caught_up}</h3>
+                <p style={{ fontSize: '1rem', color: '#0d9488', fontWeight: 600 }}>{t.home.all_caught_up_desc}</p>
+              </div>
+            </div>
+          )}
 
           {/* 2-Column Responsive Feature Grid */}
           <div style={{
@@ -280,8 +334,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <Heart size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>Memory Garden</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>Relive your special moments</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.nav.memories}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.home.relive_moments}</div>
               </div>
               <ArrowRight size={22} color="#8b5cf6" />
             </button>
@@ -295,8 +349,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <Brain size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>Cognitive Games</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>Keep your mind active</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.nav.games}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.home.keep_mind_active}</div>
               </div>
               <ArrowRight size={22} color="#059669" />
             </button>
@@ -310,8 +364,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <Activity size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>Cognitive Assessment</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>Track activity performance</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.nav.assessment}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.home.track_performance}</div>
               </div>
               <ArrowRight size={22} color="#0284c7" />
             </button>
@@ -325,8 +379,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <Users size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>People I Know</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>See your loved ones</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.nav.people}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.home.faces_of_loved_ones}</div>
               </div>
               <ArrowRight size={22} color="#4f46e5" />
             </button>
@@ -340,8 +394,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <Bell size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>Reminders</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>Medicine, meals and more</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.nav.schedule}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.home.routines_reminders}</div>
               </div>
               <ArrowRight size={22} color="#d97706" />
             </button>
@@ -355,8 +409,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <MapPin size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>Safe Places</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>Your important locations</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.nav.places}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.home.important_places}</div>
               </div>
               <ArrowRight size={22} color="#0d9488" />
             </button>
@@ -370,8 +424,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <Stethoscope size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>Find Doctor</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>Healthcare support</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a' }}>{t.home.medical_directory}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>{t.nav.places}</div>
               </div>
               <ArrowRight size={22} color="#c026d3" />
             </button>
@@ -389,8 +443,8 @@ export const PatientHome: React.FC<PatientHomeProps> = ({ onNavigate }) => {
                 <AlertCircle size={34} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#be123c' }}>Emergency Help</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#9f1239' }}>Contact guardian</div>
+                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#be123c' }}>{t.nav.sos}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#9f1239' }}>{patientProfile?.emergency_contact ? `Call ${patientProfile.emergency_contact}` : 'Contact guardian'}</div>
               </div>
               <ArrowRight size={22} color="#e11d48" />
             </button>

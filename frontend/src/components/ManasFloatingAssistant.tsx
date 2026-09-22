@@ -12,7 +12,7 @@ import {
   normalizeLanguageCode,
   getLanguageDetails
 } from '../config/languages';
-import { processAiQuery } from '../services/aiAssistantService';
+import { processAiQuery, localizeSmartEngineResponse } from '../services/aiAssistantService';
 
 export const ManasFloatingAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -82,30 +82,22 @@ export const ManasFloatingAssistant: React.FC = () => {
         clearTimeout(finishTimeoutRef.current);
       }
 
-      // Speak response aloud with Web Speech API
-      const ttsCap = checkTTSCapability(normLang);
-
-      if (ttsCap.available && ttsCap.voice) {
-        setState('speaking');
-        speakText(responseText, normLang, {
-          onStart: () => setState('speaking'),
-          onEnd: () => setState('idle'),
-          onUnavailable: (notice) => {
-            setVoiceNotice(notice);
-            setState('idle');
-          }
-        });
-
-        // Safety fallback timer if onend fails to trigger
-        const speechDurationMs = Math.max(3000, responseText.length * 85);
-        finishTimeoutRef.current = setTimeout(() => {
+      // Speak response aloud in the selected language using Web Speech API
+      setState('speaking');
+      speakText(responseText, normLang, {
+        onStart: () => setState('speaking'),
+        onEnd: () => setState('idle'),
+        onUnavailable: (notice) => {
+          setVoiceNotice(notice);
           setState('idle');
-        }, speechDurationMs);
-      } else {
-        // Fallback notification if TTS unavailable for dialect
-        setVoiceNotice(ttsCap.message || `Voice for ${langDetails.name} is currently unavailable on this device. MANAS will continue in ${langDetails.name} text.`);
+        }
+      });
+
+      // Safety fallback timer if onend fails to trigger
+      const speechDurationMs = Math.max(3000, responseText.length * 85);
+      finishTimeoutRef.current = setTimeout(() => {
         setState('idle');
-      }
+      }, speechDurationMs);
 
       // Execute Action / Screen Navigation if suggested by AI
       if (resData.suggested_screen) {
@@ -116,14 +108,21 @@ export const ManasFloatingAssistant: React.FC = () => {
       }
     } catch (err) {
       console.error('[MANAS AI Error]', err);
-      const fallbackMsg = `I'm right here with you, ${patientFirstName}. You can ask me to open games, check your schedule, find family members, or just talk with me!`;
+      const rawFallback = `I'm right here with you, ${patientFirstName}. You can ask me to open games, check your schedule, find family members, or just talk with me!`;
+      const fallbackMsg = localizeSmartEngineResponse(rawFallback, normLang);
       setResponse(fallbackMsg);
-      setState('idle');
-      speakText(fallbackMsg, normLang);
+      setState('speaking');
+      speakText(fallbackMsg, normLang, {
+        onEnd: () => setState('idle'),
+        onUnavailable: () => setState('idle')
+      });
     }
   };
 
-  const startListening = () => {
+  const isListeningRef = useRef(false);
+
+  const startListening = async () => {
+    isListeningRef.current = true;
     setState('listening');
     setResponse(null);
     setTranscript('');
@@ -133,28 +132,54 @@ export const ManasFloatingAssistant: React.FC = () => {
     const langDetails = getLanguageDetails(normLang);
 
     const recognizer = createSpeechRecognizer(
-      (text) => handleProcessQuery(text),
-      () => {
-        if (state === 'listening') setState('idle');
+      // onResult
+      (text) => {
+        isListeningRef.current = false;
+        handleProcessQuery(text);
       },
+      // onError
+      (_err, notice) => {
+        isListeningRef.current = false;
+        if (notice) setVoiceNotice(notice);
+        setState((curr) => (curr === 'listening' ? 'idle' : curr));
+      },
+      // lang
       normLang,
+      // onUnavailable
       (notice) => {
         setVoiceNotice(notice);
-        setState('idle');
+      },
+      // onInterimResult
+      (interim) => {
+        if (interim) {
+          setTranscript(interim);
+        }
+      },
+      // onEnd
+      () => {
+        isListeningRef.current = false;
+        setState((curr) => (curr === 'listening' ? 'idle' : curr));
+      },
+      // onStart
+      () => {
+        isListeningRef.current = true;
+        setState('listening');
       }
     );
 
     recognizerRef.current = recognizer;
 
     if (recognizer) {
-      recognizer.start();
+      await recognizer.start();
     } else {
-      setVoiceNotice(`Voice input for ${langDetails.name} is unavailable on this browser.`);
+      isListeningRef.current = false;
+      setVoiceNotice(`Voice input for ${langDetails.name} is unavailable on this browser. You can type commands below.`);
       setState('idle');
     }
   };
 
   const stopListening = () => {
+    isListeningRef.current = false;
     stopSpeech();
     if (finishTimeoutRef.current) {
       clearTimeout(finishTimeoutRef.current);
@@ -162,13 +187,12 @@ export const ManasFloatingAssistant: React.FC = () => {
     if (recognizerRef.current && recognizerRef.current.stop) {
       recognizerRef.current.stop();
     }
-    setState('idle');
+    setState((curr) => (curr === 'listening' ? 'idle' : curr));
   };
 
   const handleBrainClick = () => {
     if (!isOpen) {
       setIsOpen(true);
-      setState('listening');
       startListening();
     } else {
       setIsOpen(false);

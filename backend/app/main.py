@@ -1,8 +1,10 @@
 import os
 import datetime
+import uuid
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -17,10 +19,11 @@ from app.models import (
 )
 from app.schemas import (
     LoginRequest, RegisterRequest, RefreshTokenRequest, TokenResponse, AuditLogOut,
-    PatientProfileSchema, PatientOnboardingRequest,
-    PersonCreate, PersonOut, MemoryCreate, MemoryOut, GameSessionSubmit,
-    ReminderOut, RoutineOut, AlertOut, VoiceQueryRequest, FaceRecognizeRequest, SyncQueueItem,
-    PlaceCreate, PlaceOut, FaceLoginRequest, CaregiverOnboardingWizardRequest,
+    PatientProfileSchema, PatientOnboardingRequest, PatientProfileUpdate,
+    PersonCreate, PersonUpdate, PersonOut, MemoryCreate, MemoryUpdate, MemoryOut, GameSessionSubmit,
+    ReminderCreate, ReminderUpdate, ReminderOut, RoutineCreate, RoutineUpdate, RoutineOut,
+    AlertOut, VoiceQueryRequest, FaceRecognizeRequest, SyncQueueItem,
+    PlaceCreate, PlaceUpdate, PlaceOut, FaceLoginRequest, CaregiverOnboardingWizardRequest,
     VoiceAuthRequest, MemoryActivitySubmit, CognitiveAssessmentSubmit,
     PatientLocationUpdate, PatientLocationOut, MissedReminderCheckRequest, MissedReminderResult
 )
@@ -57,6 +60,48 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Uploads directory setup
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BACKEND_UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
+FRONTEND_UPLOADS_DIR = os.path.join(os.path.dirname(BASE_DIR), "frontend", "public", "uploads")
+os.makedirs(BACKEND_UPLOADS_DIR, exist_ok=True)
+try:
+    os.makedirs(FRONTEND_UPLOADS_DIR, exist_ok=True)
+except Exception:
+    pass
+
+app.mount("/uploads", StaticFiles(directory=BACKEND_UPLOADS_DIR), name="uploads")
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are supported.")
+    
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
+    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]:
+        ext = ".jpg"
+    
+    clean_prefix = "".join(c for c in (os.path.splitext(os.path.basename(file.filename or "photo"))[0]) if c.isalnum() or c in ("-", "_"))[:15] or "photo"
+    unique_name = f"{clean_prefix}_{uuid.uuid4().hex[:8]}{ext}"
+    
+    content = await file.read()
+    b_path = os.path.join(BACKEND_UPLOADS_DIR, unique_name)
+    with open(b_path, "wb") as f:
+        f.write(content)
+        
+    try:
+        f_path = os.path.join(FRONTEND_UPLOADS_DIR, unique_name)
+        with open(f_path, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        print(f"Warning: Could not write to frontend uploads: {e}")
+        
+    return {
+        "url": f"/uploads/{unique_name}",
+        "filename": unique_name,
+        "size": len(content)
+    }
 
 @app.get("/")
 def root():
@@ -314,6 +359,41 @@ def complete_onboarding(
         log_audit_event(db, current_user, "UPDATE_PATIENT_ONBOARDING", f"Patient {patient_id} completed onboarding")
     return {"status": "success", "message": "Onboarding completed successfully!"}
 
+@app.put("/api/patient/profile")
+def update_patient_profile(
+    req: PatientProfileUpdate,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    patient = db.query(PatientProfile).filter(PatientProfile.id == patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    if req.full_name is not None and patient.user:
+        patient.user.full_name = req.full_name
+    if req.age is not None:
+        patient.age = req.age
+    if req.preferred_language is not None:
+        patient.preferred_language = req.preferred_language
+    if req.voice_preference is not None:
+        patient.voice_preference = req.voice_preference
+    if req.emergency_contact is not None:
+        patient.emergency_contact = req.emergency_contact
+    
+    db.commit()
+    log_audit_event(db, current_user, "UPDATE_PATIENT_PROFILE", f"Updated profile for patient {patient_id}")
+    return {
+        "id": patient.id,
+        "full_name": patient.user.full_name if patient.user else "Patient",
+        "age": patient.age,
+        "preferred_language": patient.preferred_language,
+        "voice_preference": patient.voice_preference,
+        "emergency_contact": patient.emergency_contact,
+        "onboarding_completed": patient.onboarding_completed
+    }
+
 @app.get("/api/patient/cognitive-profile")
 def get_cognitive_profile(
     requested_patient_id: Optional[int] = None,
@@ -343,11 +423,15 @@ def get_cognitive_profile(
 @app.get("/api/people", response_model=List[PersonOut])
 def get_people(
     requested_patient_id: Optional[int] = None,
+    include_inactive: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
-    return db.query(Person).filter(Person.patient_id == patient_id).all()
+    q = db.query(Person).filter(Person.patient_id == patient_id)
+    if not include_inactive:
+        q = q.filter(Person.is_active != False)
+    return q.order_by(Person.id.asc()).all()
 
 @app.post("/api/people", response_model=PersonOut)
 def create_person(
@@ -362,7 +446,9 @@ def create_person(
         name=req.name,
         relationship=req.relationship,
         photo_url=req.photo_url or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
-        notes=req.notes
+        notes=req.notes,
+        date_of_birth=req.date_of_birth,
+        is_active=req.is_active
     )
     db.add(person)
     db.commit()
@@ -383,13 +469,40 @@ def create_person(
     log_audit_event(db, current_user, "ENROLL_PERSON_FACE", f"Added person {person.name} ({person.relationship}) for patient {patient_id}")
     return person
 
-@app.delete("/api/people/{person_id}")
-def delete_person(
+@app.put("/api/people/{person_id}", response_model=PersonOut)
+def update_person(
     person_id: int,
+    req: PersonUpdate,
+    requested_patient_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    patient_id = get_authenticated_patient_id(current_user, None, db)
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    person = db.query(Person).filter(Person.id == person_id, Person.patient_id == patient_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    
+    if req.name is not None: person.name = req.name
+    if req.relationship is not None: person.relationship = req.relationship
+    if req.photo_url is not None: person.photo_url = req.photo_url
+    if req.notes is not None: person.notes = req.notes
+    if req.date_of_birth is not None: person.date_of_birth = req.date_of_birth
+    if req.is_active is not None: person.is_active = req.is_active
+    person.updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(person)
+    log_audit_event(db, current_user, "UPDATE_PERSON", f"Updated person {person.name} ({person.relationship})")
+    return person
+
+@app.delete("/api/people/{person_id}")
+def delete_person(
+    person_id: int,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
     person = db.query(Person).filter(Person.id == person_id, Person.patient_id == patient_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
@@ -576,7 +689,7 @@ def get_places(
     db: Session = Depends(get_db)
 ):
     patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
-    return db.query(Place).filter(Place.patient_id == patient_id).all()
+    return db.query(Place).filter(Place.patient_id == patient_id).order_by(Place.id.asc()).all()
 
 @app.post("/api/places", response_model=PlaceOut)
 def create_place(
@@ -602,13 +715,41 @@ def create_place(
     log_audit_event(db, current_user, "CREATE_PLACE", f"Created place {place.name}")
     return place
 
-@app.delete("/api/places/{place_id}")
-def delete_place(
+@app.put("/api/places/{place_id}", response_model=PlaceOut)
+def update_place(
     place_id: int,
+    req: PlaceUpdate,
+    requested_patient_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    patient_id = get_authenticated_patient_id(current_user, None, db)
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    place = db.query(Place).filter(Place.id == place_id, Place.patient_id == patient_id).first()
+    if not place:
+        raise HTTPException(status_code=404, detail="Place not found")
+    
+    if req.name is not None: place.name = req.name
+    if req.category is not None: place.category = req.category
+    if req.address is not None: place.address = req.address
+    if req.latitude is not None: place.latitude = req.latitude
+    if req.longitude is not None: place.longitude = req.longitude
+    if req.notes is not None: place.notes = req.notes
+    if req.photo_url is not None: place.photo_url = req.photo_url
+    place.updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(place)
+    log_audit_event(db, current_user, "UPDATE_PLACE", f"Updated place {place.name}")
+    return place
+
+@app.delete("/api/places/{place_id}")
+def delete_place(
+    place_id: int,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
     place = db.query(Place).filter(Place.id == place_id, Place.patient_id == patient_id).first()
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")
@@ -626,7 +767,7 @@ def get_memories(
     db: Session = Depends(get_db)
 ):
     patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
-    return db.query(Memory).filter(Memory.patient_id == patient_id).all()
+    return db.query(Memory).filter(Memory.patient_id == patient_id).order_by(Memory.id.asc()).all()
 
 @app.post("/api/memories", response_model=MemoryOut)
 def create_memory(
@@ -642,10 +783,14 @@ def create_memory(
         description=req.description,
         place=req.place,
         people_involved=req.people_involved,
+        people_ids=req.people_ids,
         memory_date=req.memory_date,
         photo_url=req.photo_url or "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
         voice_note_url=req.voice_note_url,
-        tags=req.tags
+        tags=req.tags,
+        category=req.category or "Family",
+        associated_person_id=req.associated_person_id,
+        associated_place_id=req.associated_place_id
     )
     db.add(mem)
     db.commit()
@@ -653,13 +798,46 @@ def create_memory(
     log_audit_event(db, current_user, "CREATE_MEMORY", f"Created memory {mem.title}")
     return mem
 
-@app.delete("/api/memories/{memory_id}")
-def delete_memory(
+@app.put("/api/memories/{memory_id}", response_model=MemoryOut)
+def update_memory(
     memory_id: int,
+    req: MemoryUpdate,
+    requested_patient_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    patient_id = get_authenticated_patient_id(current_user, None, db)
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    mem = db.query(Memory).filter(Memory.id == memory_id, Memory.patient_id == patient_id).first()
+    if not mem:
+        raise HTTPException(status_code=404, detail="Memory record not found")
+    
+    if req.title is not None: mem.title = req.title
+    if req.description is not None: mem.description = req.description
+    if req.place is not None: mem.place = req.place
+    if req.people_involved is not None: mem.people_involved = req.people_involved
+    if req.people_ids is not None: mem.people_ids = req.people_ids
+    if req.memory_date is not None: mem.memory_date = req.memory_date
+    if req.photo_url is not None: mem.photo_url = req.photo_url
+    if req.voice_note_url is not None: mem.voice_note_url = req.voice_note_url
+    if req.tags is not None: mem.tags = req.tags
+    if req.category is not None: mem.category = req.category
+    if req.associated_person_id is not None: mem.associated_person_id = req.associated_person_id
+    if req.associated_place_id is not None: mem.associated_place_id = req.associated_place_id
+    mem.updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(mem)
+    log_audit_event(db, current_user, "UPDATE_MEMORY", f"Updated memory {mem.title}")
+    return mem
+
+@app.delete("/api/memories/{memory_id}")
+def delete_memory(
+    memory_id: int,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
     mem = db.query(Memory).filter(Memory.id == memory_id, Memory.patient_id == patient_id).first()
     if not mem:
         raise HTTPException(status_code=404, detail="Memory record not found")
@@ -677,22 +855,180 @@ def get_reminders(
     db: Session = Depends(get_db)
 ):
     patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
-    return db.query(Reminder).filter(Reminder.patient_id == patient_id).all()
+    return db.query(Reminder).filter(Reminder.patient_id == patient_id).order_by(Reminder.id.asc()).all()
+
+@app.post("/api/reminders", response_model=ReminderOut)
+def create_reminder(
+    req: ReminderCreate,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    rem = Reminder(
+        patient_id=patient_id,
+        title=req.title,
+        scheduled_time=req.scheduled_time,
+        category=req.category or "Medicine",
+        is_recurring=req.is_recurring if req.is_recurring is not None else True,
+        status=req.status or "Pending"
+    )
+    db.add(rem)
+    db.commit()
+    db.refresh(rem)
+    log_audit_event(db, current_user, "CREATE_REMINDER", f"Created reminder {rem.title} at {rem.scheduled_time}")
+    return rem
+
+@app.put("/api/reminders/{reminder_id}", response_model=ReminderOut)
+def update_reminder(
+    reminder_id: int,
+    req: ReminderUpdate,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    rem = db.query(Reminder).filter(Reminder.id == reminder_id, Reminder.patient_id == patient_id).first()
+    if not rem:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    
+    if req.title is not None: rem.title = req.title
+    if req.scheduled_time is not None: rem.scheduled_time = req.scheduled_time
+    if req.category is not None: rem.category = req.category
+    if req.is_recurring is not None: rem.is_recurring = req.is_recurring
+    if req.status is not None: rem.status = req.status
+    rem.updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(rem)
+    log_audit_event(db, current_user, "UPDATE_REMINDER", f"Updated reminder {rem.title} at {rem.scheduled_time}")
+    return rem
+
+@app.delete("/api/reminders/{reminder_id}")
+def delete_reminder(
+    reminder_id: int,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    rem = db.query(Reminder).filter(Reminder.id == reminder_id, Reminder.patient_id == patient_id).first()
+    if not rem:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    db.delete(rem)
+    db.commit()
+    log_audit_event(db, current_user, "DELETE_REMINDER", f"Deleted reminder ID {reminder_id}")
+    return {"status": "deleted"}
 
 @app.post("/api/reminders/{reminder_id}/complete")
 def complete_reminder(
     reminder_id: int,
+    requested_patient_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    patient_id = get_authenticated_patient_id(current_user, None, db)
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
     rem = db.query(Reminder).filter(Reminder.id == reminder_id, Reminder.patient_id == patient_id).first()
     if rem:
         rem.status = "Completed"
         rem.completed_at = datetime.datetime.utcnow()
+        rem.updated_at = datetime.datetime.utcnow()
         db.commit()
         log_audit_event(db, current_user, "COMPLETE_REMINDER", f"Completed reminder {rem.title} (ID: {reminder_id})")
     return {"status": "updated"}
+
+# ---------------------------- ROUTINES ----------------------------
+
+@app.get("/api/routines", response_model=List[RoutineOut])
+def get_routines(
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    return db.query(Routine).filter(Routine.patient_id == patient_id).order_by(Routine.id.asc()).all()
+
+@app.post("/api/routines", response_model=RoutineOut)
+def create_routine(
+    req: RoutineCreate,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    routine = Routine(
+        patient_id=patient_id,
+        time_of_day=req.time_of_day,
+        title=req.title,
+        description=req.description,
+        category=req.category or "Daily",
+        icon_symbol=req.icon_symbol or "☀️",
+        status=req.status or "Pending"
+    )
+    db.add(routine)
+    db.commit()
+    db.refresh(routine)
+    log_audit_event(db, current_user, "CREATE_ROUTINE", f"Created routine {routine.title}")
+    return routine
+
+@app.put("/api/routines/{routine_id}", response_model=RoutineOut)
+def update_routine(
+    routine_id: int,
+    req: RoutineUpdate,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.patient_id == patient_id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    
+    if req.time_of_day is not None: routine.time_of_day = req.time_of_day
+    if req.title is not None: routine.title = req.title
+    if req.description is not None: routine.description = req.description
+    if req.category is not None: routine.category = req.category
+    if req.icon_symbol is not None: routine.icon_symbol = req.icon_symbol
+    if req.status is not None: routine.status = req.status
+    routine.updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(routine)
+    log_audit_event(db, current_user, "UPDATE_ROUTINE", f"Updated routine {routine.title}")
+    return routine
+
+@app.delete("/api/routines/{routine_id}")
+def delete_routine(
+    routine_id: int,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.patient_id == patient_id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    db.delete(routine)
+    db.commit()
+    log_audit_event(db, current_user, "DELETE_ROUTINE", f"Deleted routine ID {routine_id}")
+    return {"status": "deleted"}
+
+@app.post("/api/routines/{routine_id}/toggle")
+def toggle_routine(
+    routine_id: int,
+    requested_patient_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.patient_id == patient_id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    routine.status = "Completed" if routine.status != "Completed" else "Pending"
+    routine.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    log_audit_event(db, current_user, "TOGGLE_ROUTINE", f"Toggled routine {routine.title} to {routine.status}")
+    return {"status": "updated", "routine_status": routine.status}
 
 # ---------------------------- PATIENT SAFETY: LOCATION & MISSED REMINDERS ----------------------------
 
@@ -880,29 +1216,6 @@ def check_missed_reminders(
 
     db.commit()
     return results
-
-@app.get("/api/routines", response_model=List[RoutineOut])
-def get_routines(
-    requested_patient_id: Optional[int] = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    patient_id = get_authenticated_patient_id(current_user, requested_patient_id, db)
-    return db.query(Routine).filter(Routine.patient_id == patient_id).all()
-
-@app.post("/api/routines/{routine_id}/toggle")
-def toggle_routine(
-    routine_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    patient_id = get_authenticated_patient_id(current_user, None, db)
-    rt = db.query(Routine).filter(Routine.id == routine_id, Routine.patient_id == patient_id).first()
-    if rt:
-        rt.status = "Completed" if rt.status == "Pending" else "Pending"
-        db.commit()
-        log_audit_event(db, current_user, "TOGGLE_ROUTINE", f"Toggled routine {rt.title} to {rt.status}")
-    return {"status": "updated", "new_status": rt.status if rt else "Pending"}
 
 # ---------------------------- COGNITIVE GAMES & ADAPTIVE ML ENGINE ----------------------------
 

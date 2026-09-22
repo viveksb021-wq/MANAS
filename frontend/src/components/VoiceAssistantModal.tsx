@@ -76,7 +76,10 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     const recognizer = createSpeechRecognizer(
       (text) => handleProcessQuery(text),
       () => setIsListening(false),
-      language
+      language,
+      undefined,
+      (interim) => setTranscript(interim),
+      () => setIsListening(false)
     );
 
     if (recognizer) {

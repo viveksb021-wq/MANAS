@@ -98,8 +98,11 @@ class Person(Base):
     relationship = Column(String, nullable=False)  # e.g., "Grandson", "Daughter", "Doctor"
     photo_url = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    date_of_birth = Column(String, nullable=True)
     frequently_seen = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     patient = rel("PatientProfile", back_populates="people")
     face_profile = rel("FaceRecognitionProfile", back_populates="person", uselist=False)
@@ -130,6 +133,7 @@ class Place(Base):
     notes = Column(Text, nullable=True)
     photo_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     patient = rel("PatientProfile", back_populates="places")
 
@@ -142,6 +146,7 @@ class Memory(Base):
     description = Column(Text, nullable=False)
     place = Column(String, nullable=True)
     people_involved = Column(String, nullable=True)
+    people_ids = Column(JSON, nullable=True)  # Array of linked Person IDs
     memory_date = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)
     voice_note_url = Column(String, nullable=True)
@@ -150,6 +155,7 @@ class Memory(Base):
     associated_person_id = Column(Integer, ForeignKey("people.id"), nullable=True)
     associated_place_id = Column(Integer, ForeignKey("places.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     patient = rel("PatientProfile", back_populates="memories")
 
@@ -218,6 +224,7 @@ class Reminder(Base):
     completed_at = Column(DateTime, nullable=True)
     skipped_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     patient = rel("PatientProfile", back_populates="reminders")
 
@@ -228,8 +235,11 @@ class Routine(Base):
     patient_id = Column(Integer, ForeignKey("patient_profiles.id"))
     time_of_day = Column(String, nullable=False)  # e.g., "07:30 AM"
     title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    category = Column(String, default="Daily")
     icon_symbol = Column(String, default="☀️")
     status = Column(String, default="Pending")  # "Completed", "Pending", "Skipped"
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     patient = rel("PatientProfile", back_populates="routines")
 

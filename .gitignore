@@ -43,4 +43,8 @@ Thumbs.db
 .agents/
 .stitch/
 .dart_tool/
-**/preview_crops/
+# Uploaded media (preserve directory structure)
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/public/uploads/*
+!frontend/public/uploads/.gitkeep

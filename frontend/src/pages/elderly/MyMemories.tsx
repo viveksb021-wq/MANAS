@@ -4,6 +4,8 @@ import { fetchApi } from '../../utils/api';
 import { speakText, stopSpeech } from '../../utils/speech';
 import { BackButton } from '../../components/BackButton';
 import { usePatient } from '../../context/PatientContext';
+import { useAuth } from '../../context/AuthContext';
+import { getTranslations } from '../../config/translations';
 import { FamilyImage } from '../../components/FamilyImage';
 import { EmptyState } from '../../components/EmptyState';
 
@@ -23,7 +25,9 @@ export const MEMORY_CATEGORIES = [
 ];
 
 export const MyMemories: React.FC<MyMemoriesProps> = ({ onBack }) => {
-  const { memories: contextMemories } = usePatient();
+  const { memories: contextMemories, currentPatientId } = usePatient();
+  const { language } = useAuth();
+  const t = getTranslations(language);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'browse' | 'recall'>('browse');
 
@@ -36,37 +40,39 @@ export const MyMemories: React.FC<MyMemoriesProps> = ({ onBack }) => {
   const memories = contextMemories;
 
   const handleSpeakMemory = (mem: any) => {
-    speakText(`Memory: ${mem.title}. ${mem.description}. Location: ${mem.place || 'Home'}. Date: ${mem.memory_date || ''}.`);
+    speakText(`Memory: ${mem.title}. ${mem.description}. Location: ${mem.place || 'Home'}. Date: ${mem.memory_date || ''}.`, language);
   };
 
   const filteredMemories = selectedCategory === 'all'
     ? memories
     : memories.filter(m => m.category === selectedCategory || (m.tags && m.tags.toLowerCase().includes(selectedCategory)));
 
-  const currentRecallMemory = memories[recallIndex % (memories.length || 1)];
+  const currentRecallMemory = memories && memories.length > 0
+    ? memories[recallIndex % memories.length]
+    : null;
 
   const handleCheckRecall = async () => {
     if (!currentRecallMemory) return;
-    const isCorrect = Boolean(
-      userAnswer.toLowerCase().trim().length > 0 &&
-      (currentRecallMemory.title.toLowerCase().includes(userAnswer.toLowerCase()) ||
-       (currentRecallMemory.people_involved && currentRecallMemory.people_involved.toLowerCase().includes(userAnswer.toLowerCase())))
-    );
+    const cleanUser = userAnswer.trim().toLowerCase();
+    const correctPeople = (currentRecallMemory.people_involved || '').toLowerCase();
+    const correctTitle = (currentRecallMemory.title || '').toLowerCase();
+
+    const isCorrect = cleanUser.length > 2 && (correctPeople.includes(cleanUser) || correctTitle.includes(cleanUser));
 
     const score = isCorrect ? (showHint ? 80 : 100) : 40;
     setRecallResult({ correct: isCorrect, score });
 
     if (isCorrect) {
-      speakText("Wonderful! That is correct. Great memory recall!");
+      speakText("Wonderful! That is correct. Great memory recall!", language);
     } else {
-      speakText(`This is ${currentRecallMemory.people_involved || currentRecallMemory.title}. Keep practicing!`);
+      speakText(`This is ${currentRecallMemory.people_involved || currentRecallMemory.title}. Keep practicing!`, language);
     }
 
     try {
       await fetchApi('/memories/activity/submit', {
         method: 'POST',
         body: {
-          patient_id: 1,
+          patient_id: Number(currentPatientId),
           activity_type: 'who_is_this',
           memory_id: currentRecallMemory.id,
           prompt_shown: `Who is in this photo? (${currentRecallMemory.title})`,
@@ -92,9 +98,9 @@ export const MyMemories: React.FC<MyMemoriesProps> = ({ onBack }) => {
     <div style={{ maxWidth: '680px', margin: '0 auto', padding: '1rem 1rem 3rem 1rem' }}>
       {/* Header Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <BackButton label="Home" onClick={onBack} variant="patient" />
+        <BackButton label={t.nav.home} onClick={onBack} variant="patient" />
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a' }}>
-          MEMORY GARDEN
+          {t.memories_page.title}
         </h1>
       </div>
 
@@ -276,7 +282,7 @@ export const MyMemories: React.FC<MyMemoriesProps> = ({ onBack }) => {
           <div style={{ position: 'relative', height: '260px', borderRadius: '20px', overflow: 'hidden', marginBottom: '1.5rem' }}>
             <FamilyImage src={currentRecallMemory.photo_url} alt="Recall prompt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <button
-              onClick={() => speakText(`Clue: This memory was recorded at ${currentRecallMemory.place || 'home'} with ${currentRecallMemory.people_involved || 'family'}.`)}
+              onClick={() => speakText(`Clue: This memory was recorded at ${currentRecallMemory.place || 'home'} with ${currentRecallMemory.people_involved || 'family'}.`, language)}
               style={{ position: 'absolute', bottom: '1rem', right: '1rem', background: '#0f766e', color: '#ffffff', border: 'none', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <Volume2 size={28} />

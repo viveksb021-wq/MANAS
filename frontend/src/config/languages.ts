@@ -214,9 +214,13 @@ export function checkTTSCapability(langCode: string | null | undefined): {
     return false;
   }) || null;
 
-  // For English, if no exact regional voice matched, accept any English voice or default voice
-  if (!matchedVoice && targetPrefix === 'en') {
-    matchedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0] || null;
+  // For any language without an exact regional voice pack, select the best Indian or regional voice
+  if (!matchedVoice) {
+    // Prefer Indian English or Hindi/Bengali voices for authentic South Asian phonetics
+    matchedVoice = voices.find(v => {
+      const vLang = (v.lang || '').toLowerCase();
+      return vLang.includes('in') || vLang.includes('hi') || vLang.includes('bn');
+    }) || voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0] || null;
   }
 
   if (matchedVoice) {
@@ -227,9 +231,8 @@ export function checkTTSCapability(langCode: string | null | undefined): {
   }
 
   return {
-    available: false,
-    voice: null,
-    message: `Voice for ${details.name} is currently unavailable on this device. MANAS will continue in ${details.name} text.`
+    available: true,
+    voice: voices[0] || null
   };
 }
 

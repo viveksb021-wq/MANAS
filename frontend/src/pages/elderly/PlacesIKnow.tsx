@@ -7,6 +7,9 @@ import { ManasLoader } from '../../components/ManasLoader';
 import { PageTransition } from '../../components/PageTransition';
 import { BackButton } from '../../components/BackButton';
 import { usePatient } from '../../context/PatientContext';
+import { useAuth } from '../../context/AuthContext';
+import { getTranslations } from '../../config/translations';
+import { EmptyState } from '../../components/EmptyState';
 
 interface PlacesIKnowProps {
   onBack?: () => void;
@@ -15,15 +18,14 @@ interface PlacesIKnowProps {
 
 export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelectedPlaceId }) => {
   const { places: contextPlaces } = usePatient();
+  const { language } = useAuth();
+  const t = getTranslations(language);
   const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
   const [isGuidanceActive, setIsGuidanceActive] = useState(false);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const { isOnline } = useOffline();
 
-  const places = contextPlaces.length > 0 ? contextPlaces : [
-    { id: 1, name: 'Shillong Medical Centre', category: 'Hospital', address: 'Laitumkhrah, Shillong, Meghalaya 793003', latitude: 25.5788, longitude: 91.8933, notes: "Dr. Haren Barua's clinic. Open 9 AM - 5 PM.", photo_url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80' },
-    { id: 2, name: 'Home in Laitumkhrah', category: 'Home', address: 'Main Road, Laitumkhrah, Shillong', latitude: 25.5711, longitude: 91.8890, notes: 'Family residence.', photo_url: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=600&q=80' }
-  ];
+  const places = contextPlaces;
 
   useEffect(() => {
     if (places.length > 0) {
@@ -34,21 +36,25 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
       } else if (!selectedPlace) {
         setSelectedPlace(places[0]);
       }
+    } else {
+      setSelectedPlace(null);
     }
   }, [places, initialSelectedPlaceId]);
 
   const handleSelectPlace = (place: any) => {
     setSelectedPlace(place);
-    speakText(`Selected ${place.name}. ${place.category} located at ${place.address}.`);
+    setIsGuidanceActive(false);
+    speakText(`Selected ${place.name}. Located at ${place.address || 'saved destination'}.`, language);
   };
 
   const handleShowRoute = () => {
+    if (!selectedPlace) return;
     setIsCalculatingRoute(true);
-    speakText(`Calculating route to ${selectedPlace.name}. Distance: 2.4 km.`);
+    speakText(`Calculating route to ${selectedPlace.name}. Please follow the highlighted path.`, language);
     setTimeout(() => {
       setIsCalculatingRoute(false);
       setIsGuidanceActive(true);
-    }, 1200);
+    }, 800);
   };
 
   const getCategoryEmoji = (cat: string) => {
@@ -66,9 +72,9 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '1rem' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-          <BackButton label="Home" onClick={onBack} variant="patient" />
+          <BackButton label={t.nav.home} onClick={onBack} variant="patient" />
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a' }}>
-            PLACES I KNOW
+            {t.places_page.title}
           </h1>
         </div>
 
@@ -241,12 +247,21 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
         )}
 
         {/* Saved Places List */}
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>
-          Saved Locations ({places.length})
-        </h2>
+        {places.length === 0 ? (
+          <EmptyState
+            icon={MapPin}
+            title="No Saved Places Yet"
+            description="Your caregiver can add your home, medical clinic, and favorite spots in the Caregiver Portal."
+            accentColor="#0d9488"
+          />
+        ) : (
+          <>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>
+              Saved Locations ({places.length})
+            </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {places.map((place) => {
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {places.map((place) => {
             const isSelected = selectedPlace?.id === place.id;
             return (
               <div
@@ -303,6 +318,8 @@ export const PlacesIKnow: React.FC<PlacesIKnowProps> = ({ onBack, initialSelecte
             );
           })}
         </div>
+        </>
+        )}
 
         {/* Simplified Route Guidance Modal */}
         {isGuidanceActive && selectedPlace && (

@@ -8,6 +8,7 @@ import {
   LOCALIZED_AI_STRINGS,
   checkTTSCapability
 } from '../config/languages';
+import { getTranslations } from '../config/translations';
 import { getStoredGeminiKey, setStoredGeminiKey, hasActiveGeminiKey } from '../services/aiAssistantService';
 
 interface ManasAssistantPanelProps {
@@ -57,13 +58,14 @@ export const ManasAssistantPanel: React.FC<ManasAssistantPanelProps> = ({
   const normLang = normalizeLanguageCode(language);
   const langDetails = getLanguageDetails(normLang);
   const ttsCapability = checkTTSCapability(normLang);
+  const t = getTranslations(normLang);
 
   const quickPrompts = [
-    LOCALIZED_AI_STRINGS.quick_prompt_today[normLang] || "What do I have today?",
-    LOCALIZED_AI_STRINGS.quick_prompt_person[normLang] || "Who is Arun?",
-    LOCALIZED_AI_STRINGS.quick_prompt_hospital[normLang] || "Where is the hospital?",
-    LOCALIZED_AI_STRINGS.quick_prompt_memories[normLang] || "Show my memories",
-    LOCALIZED_AI_STRINGS.quick_prompt_game[normLang] || "Let's play a game"
+    t.assistant.prompt_today,
+    t.assistant.prompt_person,
+    t.assistant.prompt_hospital,
+    t.assistant.prompt_memories,
+    t.assistant.prompt_game
   ];
 
   return (
@@ -325,10 +327,10 @@ export const ManasAssistantPanel: React.FC<ManasAssistantPanelProps> = ({
       {/* Warm Conversational Heading */}
       <div>
         <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.2rem' }}>
-          Hi {patientName || 'there'}! 👋
+          {t.assistant.hi.replace('{name}', patientName || 'there')}
         </h3>
         <p style={{ fontSize: '0.98rem', color: '#0f766e', fontWeight: 600 }}>
-          I'm MANAS. What can I do for you today?
+          {t.assistant.subtitle}
         </p>
       </div>
 
@@ -348,41 +350,54 @@ export const ManasAssistantPanel: React.FC<ManasAssistantPanelProps> = ({
       >
         {/* State Indicators */}
         {state === 'listening' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0d9488' }}>
-              🎙️ Listening to you...
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', width: '100%' }}>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0d9488', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#e11d48' }} />
+              {t.assistant.listening}
             </span>
             {/* Animated Equalizer Waveform Bars */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '26px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '22px' }}>
               <div className="waveform-bar-1" style={{ width: '4px', background: '#0d9488', borderRadius: '2px' }} />
               <div className="waveform-bar-2" style={{ width: '4px', background: '#0d9488', borderRadius: '2px' }} />
               <div className="waveform-bar-3" style={{ width: '4px', background: '#0d9488', borderRadius: '2px' }} />
               <div className="waveform-bar-4" style={{ width: '4px', background: '#0d9488', borderRadius: '2px' }} />
               <div className="waveform-bar-5" style={{ width: '4px', background: '#0d9488', borderRadius: '2px' }} />
             </div>
+            {transcript ? (
+              <div style={{ width: '100%', marginTop: '0.25rem' }}>
+                <p style={{ fontStyle: 'italic', fontSize: '0.95rem', color: '#0f172a', fontWeight: 700, background: '#ffffff', border: '1.5px solid #99f6e4', padding: '0.5rem 0.8rem', borderRadius: '12px', margin: 0, boxShadow: '0 2px 8px rgba(13,148,136,0.1)' }}>
+                  "{transcript}"
+                </p>
+                <span style={{ fontSize: '0.75rem', color: '#0f766e', marginTop: '0.2rem', display: 'block' }}>{t.assistant.hearing}</span>
+              </div>
+            ) : (
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                {t.assistant.prompt_today} • {t.assistant.prompt_game}
+              </span>
+            )}
           </div>
         )}
 
         {state === 'thinking' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#7c3aed', fontWeight: 700 }}>
-            <span style={{ fontSize: '1.25rem' }}>🧠</span> Thinking & processing...
+            <span style={{ fontSize: '1.25rem' }}>🧠</span> {t.assistant.thinking}
           </div>
         )}
 
         {state === 'speaking' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0d9488', fontWeight: 700 }}>
-            <span style={{ fontSize: '1.25rem' }}>🗣️</span> MANAS is speaking...
+            <span style={{ fontSize: '1.25rem' }}>🗣️</span> {t.assistant.speaking}
           </div>
         )}
 
         {state === 'idle' && (
           <p style={{ fontSize: '0.88rem', color: '#475569', fontWeight: 600 }}>
-            Speak, type a command, or tap a question:
+            {t.assistant.subtitle}
           </p>
         )}
 
-        {/* User Transcript Display */}
-        {transcript && (
+        {/* User Transcript Display when not listening */}
+        {state !== 'listening' && transcript && (
           <p style={{ fontStyle: 'italic', fontSize: '0.92rem', color: '#1e293b', background: 'rgba(255, 255, 255, 0.85)', padding: '0.4rem 0.8rem', borderRadius: '12px', width: '100%', margin: 0 }}>
             "{transcript}"
           </p>
@@ -410,7 +425,7 @@ export const ManasAssistantPanel: React.FC<ManasAssistantPanelProps> = ({
           }}
         >
           <Mic size={20} />
-          {state === 'listening' ? 'Stop Listening' : '🎙️ Tap to Speak'}
+          {state === 'listening' ? t.assistant.stop_listening : t.assistant.tap_to_speak}
         </button>
 
         {/* Text Input Form for Typing Commands */}
@@ -428,7 +443,7 @@ export const ManasAssistantPanel: React.FC<ManasAssistantPanelProps> = ({
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Or type a command or question..."
+            placeholder={t.assistant.type_placeholder}
             style={{
               flex: 1,
               padding: '0.65rem 0.9rem',

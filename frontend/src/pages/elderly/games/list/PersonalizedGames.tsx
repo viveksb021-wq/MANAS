@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { GameEngine } from '../engine/GameEngine';
-import { Heart, Users, MapPin, Sparkles } from 'lucide-react';
+import { Heart, Users, MapPin, Sparkles, Image } from 'lucide-react';
 import { speakText } from '../../../../utils/speech';
-import { usePatient, DEFAULT_FAMILY_MEMBERS_P1 } from '../../../../context/PatientContext';
+import { usePatient, FamilyMember } from '../../../../context/PatientContext';
 import { FamilyImage } from '../../../../components/FamilyImage';
 
 // ==========================================
@@ -15,15 +15,24 @@ interface MyFamilyContentProps {
 }
 
 const MyFamilyContent: React.FC<MyFamilyContentProps> = ({ level, recordAttempt, finishGame }) => {
-  const { familyMembers } = usePatient();
-  const pool = (familyMembers && familyMembers.length >= 2) ? familyMembers : DEFAULT_FAMILY_MEMBERS_P1;
-  const nonPatientMembers = pool.filter(m => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
-  const validPool = nonPatientMembers.length > 0 ? nonPatientMembers : pool;
+  const { activeFamilyMembers } = usePatient();
+  const validPool = activeFamilyMembers.filter(m => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
 
-  const [selectedMember] = useState(() => {
-    // Pick member by level offset for variety
-    return validPool[(level - 1) % validPool.length];
-  });
+  if (validPool.length === 0) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <Users size={48} color="#0f766e" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          No Family Members Enrolled
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver can add family members in People I Know to practice familiar faces.
+        </p>
+      </div>
+    );
+  }
+
+  const selectedMember = validPool[(level - 1) % validPool.length];
   const [acknowledged, setAcknowledged] = useState(false);
 
   const handleAcknowledge = () => {
@@ -52,7 +61,7 @@ const MyFamilyContent: React.FC<MyFamilyContentProps> = ({ level, recordAttempt,
           justifyContent: 'center'
         }}>
           <FamilyImage
-            src={selectedMember.imagePath}
+            src={selectedMember.photo_url || selectedMember.imagePath}
             alt={selectedMember.name}
             name={selectedMember.name}
             relationship={selectedMember.relationship}
@@ -121,35 +130,48 @@ interface MySpecialMomentContentProps {
   finishGame: (finalScore?: number) => void;
 }
 
-const MOMENT_LEVELS = [
-  { title: 'Bihu Festival Celebration', prompt: 'Do you remember this traditional celebration with homemade Pitha sweets?', image: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80', feedback: 'Thank you for sharing. This is your Bihu Festival celebration memory.' },
-  { title: 'Family Garden Afternoon Tea', prompt: 'Do you remember drinking warm Assam tea in the garden with your daughter Meera?', image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80', feedback: 'Wonderful memory! Garden afternoon tea brings warmth and peace.' }
-];
-
 const MySpecialMomentContent: React.FC<MySpecialMomentContentProps> = ({ level, recordAttempt, finishGame }) => {
-  const current = MOMENT_LEVELS[(level - 1) % MOMENT_LEVELS.length];
+  const { memories } = usePatient();
+
+  if (memories.length === 0) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <Image size={48} color="#0f766e" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          No Memories Saved Yet
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver can add special memories, photos, and stories in Memory Garden.
+        </p>
+      </div>
+    );
+  }
+
+  const current = memories[(level - 1) % memories.length];
   const [chosen, setChosen] = useState<string | null>(null);
 
   const handleChoice = (answer: string) => {
     if (chosen !== null) return;
     setChosen(answer);
     recordAttempt(true);
-    speakText(current.feedback);
+    speakText(`Thank you for sharing! This is your memory: ${current.title}.`);
     setTimeout(() => finishGame(100), 1000);
   };
 
   return (
     <div style={{ background: '#ffffff', padding: '1.75rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
-      <img
-        src={current.image}
-        alt={current.title}
-        style={{ width: '100%', height: '210px', borderRadius: '20px', objectFit: 'cover', marginBottom: '1.25rem' }}
-      />
+      {current.photo_url && (
+        <img
+          src={current.photo_url}
+          alt={current.title}
+          style={{ width: '100%', height: '210px', borderRadius: '20px', objectFit: 'cover', marginBottom: '1.25rem' }}
+        />
+      )}
       <h3 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.4rem' }}>
-        {current.title} (Level {level})
+        {current.title}
       </h3>
       <p style={{ fontSize: '1.15rem', color: '#334155', marginBottom: '1.5rem', lineHeight: 1.4 }}>
-        {current.prompt}
+        {current.description || `Do you remember this special moment at ${current.place || 'home'}?`}
       </p>
       <div style={{ display: 'flex', gap: '0.85rem' }}>
         <button
@@ -221,34 +243,53 @@ interface WhereDidWeGoContentProps {
 }
 
 const WhereDidWeGoContent: React.FC<WhereDidWeGoContentProps> = ({ level, recordAttempt, finishGame }) => {
-  const { familyMembers } = usePatient();
-  const pool = (familyMembers && familyMembers.length >= 2) ? familyMembers : DEFAULT_FAMILY_MEMBERS_P1;
-  const nonPatientMembers = pool.filter(m => m.id !== 'patient' && m.relationship.toLowerCase() !== 'patient');
-  const son = nonPatientMembers.find(m => m.id === 'son') || nonPatientMembers[0] || { name: 'Ravi' };
-  const nephewOrGrandson = nonPatientMembers.find(m => m.id === 'brother1-son') || nonPatientMembers[1] || { name: 'Arun' };
+  const { places, memories } = usePatient();
+
+  const memoryWithPlace = memories.find(m => m.place && m.place.trim().length > 0);
+  const targetPlaceName = memoryWithPlace ? memoryWithPlace.place! : (places.length > 0 ? places[0].name : null);
+
+  if (!targetPlaceName) {
+    return (
+      <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
+        <MapPin size={48} color="#0f766e" style={{ margin: '0 auto 1rem auto' }} />
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>
+          No Visited Places Recorded
+        </h3>
+        <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.5 }}>
+          Your caregiver can add visited places or vacation memories in the Caregiver Portal.
+        </p>
+      </div>
+    );
+  }
+
+  const otherPlaces = places.filter(p => p.name !== targetPlaceName);
+  const distractorName = otherPlaces.length > 0 ? otherPlaces[0].name : 'City Centre Market';
 
   const [selected, setSelected] = useState<string | null>(null);
 
   const options = [
-    { label: '🌲 Shillong Peak Viewpoint', isCorrect: true },
-    { label: '🏬 City Shopping Mall', isCorrect: false }
-  ];
+    { label: `📍 ${targetPlaceName}`, isCorrect: true },
+    { label: `📍 ${distractorName}`, isCorrect: false }
+  ].sort(() => Math.random() - 0.5);
 
   const handleChoice = (opt: { label: string; isCorrect: boolean }) => {
     if (selected !== null) return;
     setSelected(opt.label);
     recordAttempt(opt.isCorrect);
-    speakText(opt.isCorrect ? `Correct! You visited Shillong Peak with ${nephewOrGrandson.name} and ${son.name}.` : "Good try!");
+    speakText(opt.isCorrect ? `Correct! You visited ${targetPlaceName}.` : `Good try! The place was ${targetPlaceName}.`);
     setTimeout(() => finishGame(opt.isCorrect ? 100 : 70), 1200);
   };
+
+  const questionTitle = memoryWithPlace
+    ? `Where did you go in this memory: "${memoryWithPlace.title}"?`
+    : `Which of these places is saved in your familiar locations?`;
 
   return (
     <div style={{ background: '#ffffff', padding: '1.75rem', borderRadius: '28px', border: '3px solid #cbd5e1', textAlign: 'center' }}>
       <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem', lineHeight: 1.3 }}>
-        Where did you go on a sunny trip with {nephewOrGrandson.name} and {son.name}? (Level {level})
+        {questionTitle}
       </h3>
 
-      {/* NEUTRAL BUTTONS BEFORE ANSWERING: No pre-highlight! */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
         {options.map((opt, i) => {
           const isChosen = selected === opt.label;
@@ -258,9 +299,13 @@ const WhereDidWeGoContent: React.FC<WhereDidWeGoContentProps> = ({ level, record
 
           if (selected !== null) {
             if (isChosen) {
-              bg = opt.isCorrect ? '#dcfce7' : '#fee2e2';
-              border = opt.isCorrect ? '#16a34a' : '#dc2626';
-              color = opt.isCorrect ? '#15803d' : '#b91c1c';
+              bg = opt.isCorrect ? '#10b981' : '#f43f5e';
+              border = opt.isCorrect ? '#059669' : '#e11d48';
+              color = '#ffffff';
+            } else if (opt.isCorrect) {
+              bg = '#d1fae5';
+              border = '#10b981';
+              color = '#065f46';
             }
           }
 
@@ -268,22 +313,28 @@ const WhereDidWeGoContent: React.FC<WhereDidWeGoContentProps> = ({ level, record
             <button
               key={i}
               onClick={() => handleChoice(opt)}
-              disabled={selected !== null && opt.isCorrect}
+              disabled={selected !== null}
               style={{
-                padding: '1.15rem',
+                width: '100%',
+                padding: '1.25rem 1.5rem',
                 borderRadius: '20px',
                 border: `3px solid ${border}`,
                 background: bg,
-                fontSize: '1.25rem',
-                fontWeight: 800,
                 color: color,
+                fontWeight: 800,
+                fontSize: '1.25rem',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 cursor: selected ? 'default' : 'pointer',
-                minHeight: '56px',
-                transition: 'all 0.15s ease',
-                boxShadow: '0 4px 10px rgba(0,0,0,0.04)'
+                minHeight: '64px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                transition: 'all 0.15s ease'
               }}
             >
-              {opt.label}
+              <span>{opt.label}</span>
+              {selected !== null && opt.isCorrect && <span>✓</span>}
             </button>
           );
         })}
@@ -298,7 +349,7 @@ export const WhereDidWeGoActivity: React.FC<{ onBack?: () => void }> = ({ onBack
       gameId="where_did_we_go"
       title="Where Did We Go?"
       domainName="Personalized Memory"
-      instructions="Contextual memory link: Identify where you visited with your family."
+      instructions="Identify the familiar place from your memories or visits."
       onBackOverride={onBack}
     >
       {({ level, recordAttempt, finishGame }) => (

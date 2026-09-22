@@ -94,10 +94,20 @@ class PersonBase(BaseModel):
     relationship: str
     photo_url: Optional[str] = None
     notes: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    is_active: bool = True
 
 class PersonCreate(PersonBase):
     embedding_data: Optional[List[float]] = None
     sample_embeddings: Optional[List[List[float]]] = None
+
+class PersonUpdate(BaseModel):
+    name: Optional[str] = None
+    relationship: Optional[str] = None
+    photo_url: Optional[str] = None
+    notes: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class PersonOut(PersonBase):
     model_config = ConfigDict(from_attributes=True)
@@ -112,13 +122,31 @@ class MemoryBase(BaseModel):
     description: str
     place: Optional[str] = None
     people_involved: Optional[str] = None
+    people_ids: Optional[List[int]] = None
     memory_date: Optional[str] = None
     photo_url: Optional[str] = None
     voice_note_url: Optional[str] = None
     tags: Optional[str] = None
+    category: Optional[str] = "Family"
+    associated_person_id: Optional[int] = None
+    associated_place_id: Optional[int] = None
 
 class MemoryCreate(MemoryBase):
     pass
+
+class MemoryUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    place: Optional[str] = None
+    people_involved: Optional[str] = None
+    people_ids: Optional[List[int]] = None
+    memory_date: Optional[str] = None
+    photo_url: Optional[str] = None
+    voice_note_url: Optional[str] = None
+    tags: Optional[str] = None
+    category: Optional[str] = None
+    associated_person_id: Optional[int] = None
+    associated_place_id: Optional[int] = None
 
 class MemoryOut(MemoryBase):
     model_config = ConfigDict(from_attributes=True)
@@ -136,6 +164,20 @@ class GameSessionSubmit(BaseModel):
     attempts_count: int
 
 # Reminder & Routine Schemas
+class ReminderCreate(BaseModel):
+    title: str
+    scheduled_time: str
+    category: Optional[str] = "Medicine"
+    is_recurring: Optional[bool] = True
+    status: Optional[str] = "Pending"
+
+class ReminderUpdate(BaseModel):
+    title: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    category: Optional[str] = None
+    is_recurring: Optional[bool] = None
+    status: Optional[str] = None
+
 class ReminderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -144,6 +186,23 @@ class ReminderOut(BaseModel):
     category: str
     scheduled_time: str
     status: str
+    is_recurring: Optional[bool] = True
+
+class RoutineCreate(BaseModel):
+    time_of_day: str
+    title: str
+    description: Optional[str] = None
+    category: Optional[str] = "Daily"
+    icon_symbol: Optional[str] = "☀️"
+    status: Optional[str] = "Pending"
+
+class RoutineUpdate(BaseModel):
+    time_of_day: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    icon_symbol: Optional[str] = None
+    status: Optional[str] = None
 
 class RoutineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -151,8 +210,17 @@ class RoutineOut(BaseModel):
     id: int
     time_of_day: str
     title: str
+    description: Optional[str] = None
+    category: Optional[str] = "Daily"
     icon_symbol: str
     status: str
+
+class PatientProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    age: Optional[int] = None
+    preferred_language: Optional[str] = None
+    voice_preference: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 # Alert Schema
 class AlertOut(BaseModel):
@@ -228,6 +296,15 @@ class PlaceBase(BaseModel):
 
 class PlaceCreate(PlaceBase):
     pass
+
+class PlaceUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    notes: Optional[str] = None
+    photo_url: Optional[str] = None
 
 class PlaceOut(PlaceBase):
     model_config = ConfigDict(from_attributes=True)
